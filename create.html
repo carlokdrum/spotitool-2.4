@@ -1,0 +1,305 @@
+{% extends "base.html" %}
+
+{% block content %}
+<style>
+  @keyframes blob {
+    0% {
+      transform: translate(0px, 0px) scale(1);
+    }
+
+    33% {
+      transform: translate(30px, -50px) scale(1.1);
+    }
+
+    66% {
+      transform: translate(-20px, 20px) scale(0.9);
+    }
+
+    100% {
+      transform: translate(0px, 0px) scale(1);
+    }
+  }
+
+  .animate-blob {
+    animation: blob 10s infinite;
+  }
+
+  .animation-delay-2000 {
+    animation-delay: 2s;
+  }
+
+  .animation-delay-4000 {
+    animation-delay: 4s;
+  }
+</style>
+
+<!-- Aurora Background -->
+<div class="fixed inset-0 z-0 pointer-events-none overflow-hidden">
+  <div
+    class="absolute top-0 left-0 w-full h-full bg-[radial-gradient(circle_at_50%_50%,rgba(17,24,39,0.7),rgba(0,0,0,1))]">
+  </div>
+  <div class="absolute top-[-10%] left-[-10%] w-[50vh] h-[50vh] bg-green-500/20 rounded-full blur-[100px] animate-blob">
+  </div>
+  <div
+    class="absolute top-[40%] right-[-10%] w-[40vh] h-[40vh] bg-blue-500/10 rounded-full blur-[100px] animate-blob animation-delay-2000">
+  </div>
+  <div
+    class="absolute bottom-[-10%] left-[20%] w-[60vh] h-[60vh] bg-purple-500/10 rounded-full blur-[100px] animate-blob animation-delay-4000">
+  </div>
+</div>
+
+<div class="h-full w-full p-4 md:p-6 md:pb-0 flex flex-col relative z-10 overflow-hidden">
+  <!-- Hero Section -->
+  <section class="mb-4 md:mb-2 text-center md:text-left shrink-0">
+    <div class="inline-flex items-center gap-2 px-4 py-2 bg-white/5 rounded-full border border-white/5 mb-4 md:mb-6">
+      <span class="relative flex h-2 w-2">
+        <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
+        <span class="relative inline-flex rounded-full h-2 w-2 bg-green-500"></span>
+      </span>
+      <span class="text-[10px] font-black uppercase tracking-[0.3em] text-gray-400">Sistema Inteligente
+        V2.0</span>
+    </div>
+
+  </section>
+
+  <!-- MOBILE LED STATUS (Top Right) -->
+  <!-- Only visible on mobile/small screens when connected -->
+  {% if session.get('client_id') or session.get('token_info') %}
+  <div class="absolute top-6 right-6 md:hidden z-50">
+    <div class="relative flex h-3 w-3">
+      <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
+      <span class="relative inline-flex rounded-full h-3 w-3 bg-green-500 shadow-[0_0_10px_rgba(34,197,94,0.8)]"></span>
+    </div>
+  </div>
+  {% endif %}
+
+  {% if not session.get('client_id') and not session.get('token_info') %}
+  <!-- Pro Config Form (Premium Glass Card) -->
+  <div class="flex-1 flex flex-col justify-center items-center">
+    <!-- Floating Logo (Outside Card) -->
+    <div class="flex justify-center mb-8 shrink-0">
+      <img src="{{ url_for('static', filename='img/logo.png') }}" alt="Logo"
+        class="h-40 md:h-48 object-contain drop-shadow-[0_20px_50px_rgba(0,0,0,0.5)]">
+    </div>
+
+    <div
+      class="w-full max-w-lg glass p-8 md:p-10 rounded-[2rem] shadow-2xl relative overflow-hidden mx-auto shrink-0 max-h-[80vh] overflow-y-auto custom-scrollbar">
+      <div class="absolute -right-20 -top-20 w-64 h-64 bg-green-500/10 blur-[100px] rounded-full"></div>
+
+
+      <h3 class="text-xl md:text-2xl font-black mb-6 text-center shrink-0">Inicia Sesión con Spotify</h3>
+
+      <div class="flex justify-center relative z-10 w-full">
+        <a href="/login"
+          class="w-full premium-btn text-black font-black py-5 rounded-xl transition-all hover:scale-[1.02] active:scale-95 text-sm md:text-base uppercase tracking-widest flex items-center justify-center gap-3">
+          <span class="text-xl">🎵</span> Conectar Cuenta
+        </a>
+      </div>
+    </div>
+  </div>
+  {% else %}
+
+
+  <!-- Main Layout Grid -->
+  <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-stretch flex-1 overflow-hidden h-full">
+
+    <!-- Left Column: Creation Form (Takes 8 columns) -->
+    <div class="lg:col-span-8 flex flex-col h-full overflow-hidden">
+      <form action="/search" method="POST" id="searchForm" class="flex flex-col h-full overflow-hidden">
+
+        <!-- Input Wrapper -->
+        <div class="w-full flex flex-col h-full gap-4">
+          <!-- Playlist Name Input -->
+          <div class="shrink-0">
+            <label class="block text-[10px] font-black uppercase tracking-widest text-gray-500 mb-2 ml-1">Nombre
+              de la Playlist</label>
+            <div
+              class="glass p-1 md:rounded-2xl rounded-none focus-within:ring-2 focus-within:ring-green-500 transition-all shadow-lg w-full border-x-0 md:border-x relative z-30">
+              <input type="text" name="playlist_name" placeholder="Escribe un nombre cool..."
+                value="{{ session.get('playlist_name', '') }}"
+                class="w-full bg-transparent border-none py-3 px-6 text-xl md:text-2xl font-medium text-white outline-none placeholder-gray-600 tracking-tight">
+            </div>
+          </div>
+
+          <!-- Songs Input Area (Drop Zone) -->
+          <div class="relative group flex-1 min-h-0 flex flex-col" id="drop-zone">
+            <!-- Drop Overlay (Hidden by default) -->
+            <div id="drop-overlay"
+              class="absolute inset-0 z-50 bg-green-500/20 backdrop-blur-sm rounded-[2.5rem] hidden flex-col items-center justify-center border-4 border-green-500 border-dashed transition-all duration-300 pointer-events-none">
+              <div class="text-6xl mb-4 animate-bounce">📂</div>
+              <h3 class="text-2xl font-black text-white uppercase tracking-widest drop-shadow-md">Suelta tu archivo aquí
+              </h3>
+            </div>
+
+            <div
+              class="absolute -inset-1 bg-gradient-to-r from-green-500/20 to-blue-500/20 md:rounded-[2.5rem] rounded-none blur opacity-25 group-focus-within:opacity-100 transition duration-1000">
+            </div>
+            <div
+              class="relative glass md:rounded-[2.5rem] rounded-none p-1 md:p-4 flex flex-col border-x-0 md:border-x h-full transition-colors duration-300"
+              id="drop-visuals">
+              <textarea name="songs" required id="songs-textarea"
+                placeholder="Pega tu lista de canciones aquí...&#10;Perfect (Slowed) - Ed Sheeran&#10;Honeymoon - Lana del Rey&#10;&#10;...O arrastra un archivo .txt/.csv aquí mismo 📂"
+                class="w-full bg-transparent border-none p-4 md:p-6 text-white placeholder-gray-700 outline-none resize-none font-medium text-lg leading-relaxed flex-1 block overflow-y-auto custom-scrollbar">{{ session.get('songs_raw', '') }}</textarea>
+
+              <div class="absolute bottom-4 right-6 flex items-center gap-4 pointer-events-none">
+                <span class="text-[9px] font-black uppercase tracking-widest text-gray-600 hidden md:block">IA
+                  Activa</span>
+                <div class="w-8 h-8 rounded-full bg-green-500/10 flex items-center justify-center">
+                  <span class="text-green-500">✨</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Analyze Button -->
+          <button type="submit" id="search-btn"
+            class="w-full premium-btn text-black font-black py-4 rounded-[2rem] transition-all hover:scale-[1.01] active:scale-95 text-lg uppercase tracking-[0.2em] shadow-[0_20px_50px_rgba(29,185,84,0.3)] shrink-0 z-20 mt-auto mb-6 md:mb-8 flex items-center justify-center gap-3">
+            <span id="btn-text">BUSCAR ⚡</span>
+            <div id="btn-loader" class="hidden">
+              <svg class="animate-spin h-6 w-6 text-black" xmlns="http://www.w3.org/2000/svg" fill="none"
+                viewBox="0 0 24 24">
+                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                <path class="opacity-75" fill="currentColor"
+                  d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z">
+                </path>
+              </svg>
+            </div>
+          </button>
+        </div>
+      </form>
+    </div>
+
+    <!-- Right Column: Pro Info (Takes 4 columns, hidden on mobile usually but visible on desktop) -->
+    <div class="lg:col-span-4 hidden lg:flex flex-col h-full overflow-hidden">
+      <!-- Info Card 1: Features -->
+      <div class="glass p-8 rounded-[2.5rem] flex-1 flex flex-col relative overflow-hidden mb-6">
+        <div class="absolute top-0 right-0 w-32 h-32 bg-green-500/10 blur-[60px] rounded-full"></div>
+
+        <h3 class="text-xl font-black mb-6 flex items-center gap-3">
+          <span class="w-8 h-8 rounded-full bg-white/5 flex items-center justify-center text-sm">💡</span>
+          <span>Pro Tips</span>
+        </h3>
+
+        <div class="space-y-6 overflow-y-auto custom-scrollbar pr-2">
+          <div class="group">
+            <div
+              class="text-[10px] uppercase tracking-widest text-gray-500 font-bold mb-1 group-hover:text-green-400 transition-colors">
+              Formato Ideal</div>
+            <p class="text-sm text-gray-300 leading-relaxed">Usa el formato "Artista - Cancion" para mejor precisión.
+            </p>
+          </div>
+
+          <div class="group">
+            <div
+              class="text-[10px] uppercase tracking-widest text-gray-500 font-bold mb-1 group-hover:text-blue-400 transition-colors">
+              Smart Import</div>
+            <p class="text-sm text-gray-300 leading-relaxed">Puedes pegar listas enormes de TikTok, YouTube o Excel.</p>
+          </div>
+
+          <div class="group">
+            <div
+              class="text-[10px] uppercase tracking-widest text-gray-500 font-bold mb-1 group-hover:text-purple-400 transition-colors">
+              Modo Turbo</div>
+            <p class="text-sm text-gray-300 leading-relaxed">El sistema verificará automáticamente duplicados en tu
+              cuenta.</p>
+          </div>
+        </div>
+
+        <div class="mt-auto pt-6 border-t border-white/5">
+          <div class="flex items-center justify-between">
+            <span class="text-[10px] font-bold text-gray-600 uppercase tracking-widest">Estado del Sistema</span>
+            <div class="flex items-center gap-2">
+              <span class="w-2 h-2 rounded-full bg-green-500 animate-pulse"></span>
+              <span class="text-xs font-bold text-green-500">Online</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+  {% endif %}
+</div>
+<script>
+  // Drag & Drop Logic
+  const dropZone = document.getElementById('drop-zone');
+  const dropOverlay = document.getElementById('drop-overlay');
+  const textarea = document.getElementById('songs-textarea');
+
+  if (dropZone) {
+    ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+      dropZone.addEventListener(eventName, preventDefaults, false);
+    });
+
+    function preventDefaults(e) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
+
+    ['dragenter', 'dragover'].forEach(eventName => {
+      dropZone.addEventListener(eventName, () => {
+        dropOverlay.classList.remove('hidden');
+        dropOverlay.classList.add('flex');
+      }, false);
+    });
+
+    ['dragleave', 'drop'].forEach(eventName => {
+      dropZone.addEventListener(eventName, () => {
+        dropOverlay.classList.add('hidden');
+        dropOverlay.classList.remove('flex');
+      }, false);
+    });
+
+    dropZone.addEventListener('drop', handleDrop, false);
+
+    // Form Loading State
+    const searchForm = document.getElementById('searchForm');
+    const searchBtn = document.getElementById('search-btn');
+    const btnText = document.getElementById('btn-text');
+    const btnLoader = document.getElementById('btn-loader');
+
+    if (searchForm) {
+      searchForm.addEventListener('submit', () => {
+        // Disable button and show loader
+        searchBtn.disabled = true;
+        searchBtn.classList.add('opacity-80', 'cursor-not-allowed');
+        btnText.innerText = 'BUSCANDO...';
+        btnLoader.classList.remove('hidden');
+      });
+    }
+
+    function handleDrop(e) {
+      const dt = e.dataTransfer;
+      const files = dt.files;
+
+      if (files.length > 0) {
+        handleFiles(files);
+      } else {
+        // Try getting text content
+        const data = dt.getData('text');
+        if (data) {
+          textarea.value += (textarea.value ? '\n' : '') + data;
+          showToast('Texto añadido', 'success');
+        }
+      }
+    }
+
+    function handleFiles(files) {
+      const file = files[0];
+      // Only accept text files or csv or json
+      if (file.type.startsWith('text/') || file.name.endsWith('.csv') || file.name.endsWith('.txt') || file.name.endsWith('.json')) {
+        const reader = new FileReader();
+        reader.readAsText(file);
+        reader.onloadend = function () {
+          const content = reader.result;
+          // Append to textarea
+          textarea.value += (textarea.value ? '\n' : '') + content;
+          showToast(`Archivo "${file.name}" importado`, 'success');
+        }
+      } else {
+        alert('Por favor, sube solo archivos de texto (.txt, .csv, .json)');
+      }
+    }
+  }
+</script>
+{% endblock %}

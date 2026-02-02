@@ -1,0 +1,1569 @@
+{% extends "base.html" %}
+
+{% block content %}
+<script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
+<div class="h-[calc(100vh-80px)] md:h-screen flex flex-col overflow-hidden max-w-4xl mx-auto relative px-0 md:px-4">
+    <!-- FIXED TOP AREA -->
+    <div class="shrink-0 pt-4 pb-2 z-20 bg-transparent relative px-4 md:px-0">
+        <!-- Premium Header (Edge-to-Edge on Mobile) -->
+        <header
+            class="mb-6 md:mb-12 flex flex-col md:flex-row items-center justify-between p-6 md:p-10 glass md:rounded-[2.5rem] rounded-3xl border md:border-x border-white/10 relative overflow-hidden shadow-2xl backdrop-blur-xl">
+            <div class="relative z-10 flex-1">
+                <div class="flex items-center gap-3 mb-3">
+                    <a href="/"
+                        class="w-10 h-10 rounded-full bg-white/5 flex items-center justify-center hover:bg-white/10 transition-all border border-white/5">←</a>
+                    <span
+                        class="text-[10px] font-black uppercase tracking-[0.3em] text-green-500 bg-green-500/10 px-3 py-1 rounded-full border border-green-500/20">Algoritmo
+                        V2.0</span>
+                </div>
+                <!-- Editable Title Input -->
+                <input type="text" id="playlist-title-input" value="{{ session.get('playlist_name') or 'Mi Playlist' }}"
+                    class="bg-transparent border-none outline-none w-full text-4xl md:text-5xl font-black tracking-tighter text-white placeholder-gray-600 focus:placeholder-gray-700 transition-colors truncate"
+                    placeholder="Nombre de la Playlist" oninput="syncTitle(this.value)">
+            </div>
+
+            <div class="flex flex-col items-end gap-2 relative z-10">
+                <div class="bg-white/5 p-4 rounded-3xl border border-white/5 backdrop-blur-md flex items-center gap-6">
+                    <div class="text-right">
+                        <div class="text-3xl font-black text-white">{{ results|length }}</div>
+                        <div class="text-[9px] font-black uppercase tracking-widest text-gray-500">Canciones</div>
+                    </div>
+                    <div class="h-8 w-px bg-white/10"></div>
+                    <div class="h-8 w-px bg-white/10"></div>
+                    <div class="h-8 w-px bg-white/10"></div>
+                    <button type="button" id="header-toggle-btn" data-expanded="false" onclick="toggleAllDetail()"
+                        class="text-[10px] font-black uppercase tracking-widest hover:text-green-500 transition-colors">Expandir
+                        Todo</button>
+                </div>
+            </div>
+
+            <!-- Decorative Glow -->
+            <div class="absolute -right-20 -top-20 w-80 h-80 bg-green-500/10 blur-[120px] -z-10 rounded-full"></div>
+        </header>
+
+        <!-- Inline Search (Fixed below header) -->
+        <div class="mb-4 relative">
+            <input type="text" id="add-song-input" placeholder="¿Falta alguna? Añadir aquí..."
+                class="w-full bg-black/50 border border-white/10 rounded-xl py-3 px-12 text-sm text-white placeholder-gray-500 focus:ring-1 focus:ring-green-500 transition-all outline-none"
+                onkeypress="if(event.key === 'Enter') { event.preventDefault(); addNewSearchGroup(this.value); }">
+            <div class="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" stroke-width="2" stroke-linecap="round"
+                        stroke-linejoin="round" />
+                </svg>
+            </div>
+        </div>
+
+        <!-- NEW: Pro Tools Toolbar (Ported from detail) -->
+        <div class="px-4 md:px-0 mb-4 flex items-center justify-between z-20">
+            <div class="flex items-center gap-4">
+                <div class="hidden md:block">
+                    <div class="text-[10px] font-black uppercase tracking-widest text-green-500 mb-1">Modo Edición</div>
+                    <div class="text-gray-400 text-[9px] font-bold uppercase tracking-widest opacity-50">Ordena y Mejora
+                    </div>
+                </div>
+            </div>
+
+            <div class="flex items-center gap-2 md:gap-4">
+                <!-- AI Expansion Trigger -->
+                <button type="button" onclick="fetchReviewRecs()" id="btn-ai-recs"
+                    class="group bg-white/5 hover:bg-green-500/10 border border-white/5 hover:border-green-500/20 px-3 md:px-6 py-2 md:py-3 rounded-2xl flex items-center gap-2 transition-all duration-300">
+                    <span class="text-base group-hover:scale-125 transition-transform duration-500">🪄</span>
+                    <span
+                        class="text-[9px] font-black uppercase tracking-widest text-gray-400 group-hover:text-green-500 hidden sm:inline">IA</span>
+                </button>
+
+                <!-- Energy Flow Trigger -->
+                <button type="button" onclick="optimizeReviewFlow()" id="btn-optimize"
+                    class="group bg-white/5 hover:bg-blue-500/10 border border-white/5 hover:border-blue-500/20 px-3 md:px-6 py-2 md:py-3 rounded-2xl flex items-center gap-2 transition-all duration-300">
+                    <span class="text-base group-hover:rotate-12 transition-transform duration-500">⚡</span>
+                    <span
+                        class="text-[9px] font-black uppercase tracking-widest text-gray-400 group-hover:text-blue-500 hidden sm:inline">Flujo</span>
+                </button>
+
+                <div class="h-8 w-[1px] bg-white/5 mx-1"></div>
+
+                <button type="button" id="master-toggle-btn" data-expanded="false" onclick="toggleAllDetail()"
+                    class="text-[9px] font-black uppercase tracking-widest hover:text-green-500 transition-colors bg-white/5 px-4 py-2 rounded-xl border border-white/10">Expandir</button>
+            </div>
+        </div>
+
+        <!-- Recommendations Section (Hidden by default) -->
+        <div id="recs-section" class="mb-4 hidden px-0">
+            <div class="glass p-6 md:p-8 rounded-3xl border border-green-500/10 relative overflow-hidden">
+                <div class="absolute -right-10 -top-10 w-48 h-48 bg-green-500/5 blur-[80px] rounded-full"></div>
+
+                <div class="flex items-center justify-between mb-6">
+                    <div>
+                        <h3 class="text-lg font-black mb-0.5">Sugerencias IA</h3>
+                        <p class="text-[8px] text-gray-500 font-bold uppercase tracking-widest">Añade canciones
+                            similares</p>
+                    </div>
+                    <button type="button" onclick="document.getElementById('recs-section').classList.add('hidden')"
+                        class="text-gray-600 hover:text-white transition text-xs">Cerrar</button>
+                </div>
+
+                <div id="recs-list"
+                    class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4 max-h-96 overflow-y-auto custom-scrollbar pr-2">
+                    <!-- Recommendations will be injected here -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- SCROLLABLE LIST AREA -->
+    <div class="flex-1 overflow-y-auto custom-scrollbar px-2 md:px-4 py-4 pb-48 scroll-smooth" id="scroll-container"
+        style="-webkit-overflow-scrolling: touch;">
+
+        <form action="/create" method="POST" id="main-form">
+            <input type="hidden" name="playlist_name" id="hidden-playlist-name"
+                value="{{ session.get('playlist_name') or 'Mi Playlist' }}">
+
+            <div class="flex flex-col gap-0 md:gap-3" id="review-results-container">
+                {% for item in results %}
+                {% set group_idx = loop.index0 %}
+                <div id="card-group-{{ group_idx }}" draggable="true"
+                    class="draggable-card border-b border-white/5 md:border md:rounded-2xl overflow-hidden group/card bg-black flex flex-col cursor-move">
+
+                    <!-- Main Row -->
+                    <div class="flex items-center gap-3 p-3 relative">
+                        <!-- Drag Handle -->
+                        <div class="shrink-0 text-white/20 group-hover/card:text-white/60 cursor-move">
+                            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path d="M4 8h16M4 16h16" stroke-width="2" stroke-linecap="round"
+                                    stroke-linejoin="round" />
+                            </svg>
+                        </div>
+                        <!-- Checkbox (Removed from Main Card, delegated to list) -->
+                        <div class="shrink-0">
+                            <!-- Visual Indicator Only -->
+                            <div
+                                class="w-6 h-6 rounded-full border-2 border-green-500/50 flex items-center justify-center bg-green-500/20">
+                                <span class="block w-2.5 h-2.5 rounded-full bg-green-500 animate-pulse"></span>
+                            </div>
+                        </div>
+
+                        <!-- Query Info (Replaced by inline label below) -->
+
+                        <!-- MAIN CONTENT (Full Width Refactor) -->
+                        <div class="flex-1 min-w-0 pr-4">
+                            <!-- Query Label (Integrated) -->
+                            <div class="flex items-center gap-2 mb-2">
+                                <span
+                                    class="text-[9px] font-black text-blue-500/60 tracking-widest uppercase">Búsqueda</span>
+                                <span class="text-[11px] text-gray-400 font-medium truncate italic">"{{ item.query
+                                    }}"</span>
+                            </div>
+
+                            {% if item.matches %}
+                            {% with match = item.matches[0] %}
+                            <!-- Result Card Data (Maximized Width) -->
+                            <div class="play-preview flex items-center gap-4 group/play cursor-pointer bg-white/[0.03] p-3 rounded-2xl border border-white/5 active:bg-white/10 transition-colors w-full"
+                                data-id="{{ match.id }}" data-url="{{ match.preview_url|default('') }}"
+                                data-name="{{ match.name }}" data-artist="{{ match.artist }}"
+                                data-img="{{ match.image }}">
+                                <!-- Artwork -->
+                                <div class="relative shrink-0">
+                                    <img src="{{ match.image or '' }}" loading="lazy" id="main-img-{{ group_idx }}"
+                                        alt="{{ match.name }} cover"
+                                        class="h-12 w-12 object-cover rounded-lg shadow-lg">
+                                    <div
+                                        class="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover/play:opacity-100 transition-opacity rounded-lg">
+                                        <span id="btn-play-{{ match.id }}"
+                                            class="play-status-icon text-white text-2xl font-bold">
+                                            ▶
+                                        </span>
+                                    </div>
+                                </div>
+                                <div class="min-w-0 flex-1">
+                                    <div class="font-bold text-white text-[15px] truncate leading-tight"
+                                        id="main-name-{{ group_idx }}">{{ match.name
+                                        }}</div>
+                                    <div class="flex items-center gap-2 mt-0.5">
+                                        <div class="text-[11px] text-gray-400 truncate"
+                                            id="main-artist-{{ group_idx }}">{{
+                                            match.artist }}</div>
+                                    </div>
+
+                                    <!-- Meta Badges -->
+                                    <div class="flex items-center gap-3 mt-1.5 w-full">
+                                        <!-- RIGHT ALIGNED ACTIONS -->
+                                        <div class="ml-auto flex items-center gap-2">
+                                            <!-- BPM Badge next to buttons -->
+                                            <div
+                                                class="flex items-center gap-1 px-3 py-2 bg-white/5 rounded-full border border-white/10 shrink-0 min-w-[65px] justify-center">
+                                                <span
+                                                    class="text-[10px] font-black text-green-500 uppercase tracking-tighter">BPM</span>
+                                                <span id="main-bpm-{{ group_idx }}"
+                                                    data-preview="{{ match.preview_url|default('') }}"
+                                                    class="text-xs text-white font-black">{{ match.bpm or '--' }}</span>
+                                                <span id="main-bpm-x2-{{ group_idx }}"
+                                                    class="text-[10px] text-gray-500 font-bold ml-1">{{ (match.bpm * 2)
+                                                    if match.bpm else '' }}</span>
+                                            </div>
+
+                                            <!-- EXPLICIT PREVIEW BUTTON -->
+                                            {% if match.preview_url %}
+                                            <button type="button" id="main-preview-btn-{{ group_idx }}"
+                                                class="play-preview relative overflow-hidden flex items-center justify-center gap-2 px-4 py-2 bg-green-500/10 hover:bg-green-500 hover:text-black border border-green-500/20 rounded-full transition-all group/btn min-w-[150px]"
+                                                data-id="{{ match.id }}" data-url="{{ match.preview_url }}"
+                                                data-name="{{ match.name }}" data-artist="{{ match.artist }}"
+                                                data-img="{{ match.image }}">
+                                                <div
+                                                    class="absolute bottom-0 left-0 w-full h-1 bg-white/10 pointer-events-none">
+                                                    <div class="btn-progress h-full bg-green-500 w-0 transition-all duration-100"
+                                                        data-id="{{ match.id }}"></div>
+                                                </div>
+                                                <span
+                                                    class="text-xs font-black uppercase tracking-widest text-green-500 group-hover/btn:text-black"
+                                                    id="text-play-{{ match.id }}">Play Preview</span>
+                                                <!-- Play Icon -->
+                                                <svg id="icon-play-{{ match.id }}"
+                                                    class="w-4 h-4 text-green-500 group-hover/btn:text-black"
+                                                    fill="currentColor" viewBox="0 0 24 24">
+                                                    <path d="M8 5v14l11-7z" />
+                                                </svg>
+                                                <!-- Pause Icon -->
+                                                <svg id="icon-pause-{{ match.id }}"
+                                                    class="w-4 h-4 text-green-500 group-hover/btn:text-black hidden"
+                                                    fill="currentColor" viewBox="0 0 24 24">
+                                                    <path d="M6 4h4v16H6zm8 0h4v16h-4z" />
+                                                </svg>
+                                            </button>
+                                            {% endif %}
+
+                                            {% if item.matches|length > 1 %}
+                                            <button type="button"
+                                                onclick="event.stopPropagation(); toggleOthers('{{ loop.index0 }}')"
+                                                id="label-{{ loop.index0 }}"
+                                                class="px-4 py-2 text-xs font-bold text-blue-400 bg-blue-500/10 hover:bg-blue-500 hover:text-white rounded-full border border-blue-500/10 transition-colors">
+                                                +{{ item.matches|length - 1 }} más
+                                            </button>
+                                            {% endif %}
+                                        </div>
+                                    </div>
+                                </div>
+                                {% if match.preview_url %}
+                                <audio id="audio-{{ match.id }}" src="{{ match.preview_url }}" preload="none"></audio>
+                                {% endif %}
+                            </div>
+                            {% endwith %}
+                            {% else %}
+                            <div
+                                class="text-[11px] text-red-400 italic py-3 pl-2 border-l-2 border-red-500/20 bg-red-500/5 rounded-r-lg">
+                                Sin resultados para "{{ item.query }}"
+                            </div>
+                            {% endif %}
+                        </div>
+
+                        <!-- Discard Button -->
+                        <button type="button" onclick="this.closest('.draggable-card').remove()" title="Discard match"
+                            aria-label="Discard match"
+                            class="shrink-0 p-2 text-gray-600 hover:text-red-500 transition-colors opacity-100 md:opacity-0 group-hover/card:opacity-100">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path d="M6 18L18 6M6 6l12 12" stroke-width="2.5" stroke-linecap="round"
+                                    stroke-linejoin="round" />
+                            </svg>
+                        </button>
+                    </div>
+
+                    <!-- Collapsible Sub-list (Always render checkboxes for selection, but hide sub-list if only 1 match) -->
+                    {% if item.matches %}
+                    <div id="others-{{ loop.index0 }}"
+                        class="hidden px-4 pb-4 animate-in fade-in slide-in-from-top-2 duration-200">
+                        <div class="bg-black/20 rounded-2xl p-2 border border-white/5 space-y-1">
+                            {% for match in item.matches %}
+                            <div class="flex items-center gap-4 p-2 hover:bg-white/5 rounded-xl transition-all group/sub {% if loop.first %}bg-white/5{% endif %}"
+                                id="sub-card-{{ group_idx }}-{{ loop.index0 }}" data-img="{{ match.image }}"
+                                data-name="{{ match.name }}" data-artist="{{ match.artist }}" data-id="{{ match.id }}"
+                                data-bpm="{{ match.bpm|default('0') }}" data-key="{{ match.key|default('?') }}"
+                                data-preview="{{ match.preview_url|default('') }}">
+                                <label
+                                    class="cursor-pointer relative flex items-center justify-center w-5 h-5 shrink-0 ml-2">
+                                    <input type="checkbox" name="track_{{ match.id }}" value="{{ match.uri }}"
+                                        aria-label="Select {{ match.name }} by {{ match.artist }}"
+                                        onclick="selectCardSafe('{{ group_idx }}', '{{ loop.index0 }}')" {% if
+                                        loop.first %}checked{% endif %}
+                                        class="peer w-4 h-4 appearance-none border-2 border-white/10 rounded-full checked:bg-green-500 checked:border-green-500 transition-all bg-black/40 sub-checkbox-{{ group_idx }}">
+                                    <svg class="absolute w-2.5 h-2.5 text-black opacity-0 peer-checked:opacity-100 transition-all mt-0.5"
+                                        viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="4">
+                                        <polyline points="20 6 9 17 4 12"></polyline>
+                                    </svg>
+                                </label>
+                                <div class="play-preview flex-1 min-w-0 flex items-center gap-3 cursor-pointer"
+                                    data-id="{{ match.id }}" data-url="{{ match.preview_url|default('') }}"
+                                    data-name="{{ match.name }}" data-artist="{{ match.artist }}"
+                                    data-img="{{ match.image }}">
+                                    <img src="{{ match.image or '' }}" alt="{{ match.name }} thumbnail"
+                                        class="h-8 w-8 object-cover rounded shadow-md opacity-60 group-hover/sub:opacity-100 transition-opacity">
+                                    <div class="min-w-0 flex-1">
+                                        <div class="font-bold text-white text-[11px] truncate flex items-center gap-2">
+                                            <span id="btn-play-{{ match.id }}"
+                                                class="play-status-icon text-green-500">▶</span>
+                                            {{ match.name }}
+                                        </div>
+                                        <div class="flex items-center gap-2">
+                                            <div
+                                                class="text-[8px] text-gray-500 truncate uppercase font-black tracking-widest">
+                                                {{ match.artist }}</div>
+                                            <!-- BPM for secondary matches -->
+                                            <!-- Hidden BPM for secondary tracks per user request -->
+                                            <div class="hidden" id="sub-bpm-{{ group_idx }}-{{ loop.index0 }}"
+                                                data-preview="{{ match.preview_url|default('') }}">{{ match.bpm or '--'
+                                                }}</div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            {% endfor %}
+                        </div>
+                    </div>
+                    {% endif %}
+                </div>
+                {% endfor %}
+            </div>
+
+            <!-- Professional Bottom Dock (Floating Buttons) -->
+            <div class="fixed bottom-6 left-0 w-full z-[100] px-4 pointer-events-none">
+                <div class="max-w-xl mx-auto flex items-center gap-3 h-[4rem] pointer-events-auto">
+                    <!-- 1. Cover Button (Secondary) -->
+                    <button type="button" onclick="openCoverModal()"
+                        class="h-14 w-[4.5rem] flex flex-col items-center justify-center gap-1 bg-[#121212]/90 backdrop-blur-xl rounded-2xl border border-white/10 active:scale-95 transition-all text-gray-400 hover:text-white group relative overflow-hidden shadow-2xl">
+                        <div
+                            class="absolute inset-0 bg-gradient-to-tr from-white/0 to-white/5 opacity-0 group-hover:opacity-100 transition-opacity">
+                        </div>
+                        <svg class="w-6 h-6 mb-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path
+                                d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"
+                                stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+                        </svg>
+                        <span class="text-[9px] font-bold uppercase tracking-wider">Portada</span>
+                    </button>
+
+                    <!-- Hidden Input -->
+                    <input type="hidden" name="cover_image" id="hidden-cover-input">
+
+                    <!-- 2. Create Button (Primary) -->
+                    <button type="button" onclick="openConfirmModal()"
+                        class="flex-1 h-14 bg-green-500 hover:bg-green-400 text-black rounded-2xl font-black text-sm uppercase tracking-widest flex items-center justify-center gap-3 shadow-lg shadow-green-900/40 active:scale-[0.98] transition-all relative overflow-hidden">
+                        <span class="relative z-10">Crear Playlist</span>
+                        <svg class="w-6 h-6 relative z-10" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path d="M13 7l5 5m0 0l-5 5m5-5H6" stroke-width="2.5" stroke-linecap="round"
+                                stroke-linejoin="round" />
+                        </svg>
+                        <!-- Shine Effect -->
+                        <div
+                            class="absolute top-0 -inset-full h-full w-1/2 z-5 block transform -skew-x-12 bg-gradient-to-r from-transparent to-white opacity-40 animate-shine">
+                        </div>
+                    </button>
+                </div>
+            </div>
+        </form>
+    </div>
+
+    <!-- Cover Art Studio Modal -->
+    <div id="cover-modal" class="fixed inset-0 z-[100] hidden">
+        <!-- Overlay -->
+        <div class="absolute inset-0 bg-black/80 backdrop-blur-sm" onclick="closeCoverModal()"></div>
+
+        <!-- Content -->
+        <div
+            class="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-full max-w-md bg-[#121212] border border-white/10 rounded-3xl overflow-hidden shadow-2xl animate-in zoom-in-95 duration-200">
+            <div class="p-6">
+                <h3 class="text-xl font-black text-white tracking-tight mb-6 flex items-center gap-2">
+                    <span class="text-green-500">🎨</span> Cover Art Studio
+                </h3>
+
+                <!-- Canvas Container -->
+                <div
+                    class="aspect-square w-full bg-neutral-900 rounded-xl overflow-hidden mb-6 relative group shadow-lg border border-white/5">
+                    <canvas id="cover-canvas" width="640" height="640" class="w-full h-full object-cover"></canvas>
+                    <div id="cover-loader" class="absolute inset-0 bg-black/50 flex items-center justify-center hidden">
+                        <div class="w-8 h-8 border-2 border-white/20 border-t-green-500 rounded-full animate-spin">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Controls -->
+                <div class="space-y-4 mb-6">
+                    <!-- Style Buttons -->
+                    <div class="grid grid-cols-2 gap-3">
+                        <button type="button" onclick="generateCover('collage')"
+                            class="p-3 rounded-xl bg-white/5 hover:bg-white/10 border border-white/5 text-xs font-bold text-gray-300 hover:text-white transition-all flex flex-col items-center gap-2">
+                            <span class="text-lg">🖼️</span> Mosaico
+                        </button>
+                        <button type="button" onclick="generateCover('gradient')"
+                            class="p-3 rounded-xl bg-white/5 hover:bg-white/10 border border-white/5 text-xs font-bold text-gray-300 hover:text-white transition-all flex flex-col items-center gap-2">
+                            <span class="text-lg">🌈</span> Vibe
+                        </button>
+                    </div>
+
+                    <!-- Text Input -->
+                    <div class="relative">
+                        <input type="text" id="cover-text" value="PLAYLIST" placeholder="Título de la Portada"
+                            maxlength="20" oninput="updateCoverText()"
+                            class="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-white text-sm font-bold placeholder-gray-600 focus:border-green-500 focus:ring-1 focus:ring-green-500 transition-all outline-none uppercase tracking-widest text-center">
+                        <label
+                            class="absolute -top-2 left-3 px-1 bg-[#121212] text-[9px] font-black text-gray-500 uppercase tracking-widest">Texto</label>
+                    </div>
+                </div>
+
+                <!-- Footer -->
+                <div class="flex gap-3">
+                    <button type="button" onclick="closeCoverModal()"
+                        class="flex-1 py-3 bg-transparent hover:bg-white/5 text-gray-500 hover:text-white font-bold text-xs uppercase tracking-widest rounded-xl transition-colors">Cancelar</button>
+                    <button type="button" onclick="saveCover()"
+                        class="flex-1 py-3 bg-green-500 hover:bg-green-400 text-black font-black text-xs uppercase tracking-widest rounded-xl transition-colors shadow-lg shadow-green-900/20">Usar
+                        Esta</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Sortable.js Initialization
+        document.addEventListener('DOMContentLoaded', () => {
+            const container = document.getElementById('review-results-container');
+            if (container) {
+                Sortable.create(container, {
+                    animation: 250,
+                    handle: '.cursor-move',
+                    ghostClass: 'bg-white/5',
+                    dragClass: 'opacity-50',
+                    onEnd: () => showToast('Nuevo orden establecido', 'info')
+                });
+            }
+
+            const bg = document.getElementById('ambient-bg');
+            if (bg) bg.style.background = `radial-gradient(circle at 0% 0%, #1db95411 0%, #000 100%)`;
+        });
+
+        // 6. Pro Tools: Recommendations
+        async function fetchReviewRecs() {
+            const btn = document.getElementById('btn-ai-recs');
+            const section = document.getElementById('recs-section');
+            const list = document.getElementById('recs-list');
+
+            // Get selected IDs
+            const selectedIds = Array.from(document.querySelectorAll('input[type="checkbox"]:checked'))
+                .map(input => input.closest('[data-id]')?.dataset.id)
+                .filter(id => id);
+
+            if (selectedIds.length === 0) {
+                alert('⚠️ Por favor, selecciona al menos una canción para generar sugerencias.');
+                return;
+            }
+
+            btn.classList.add('animate-pulse', 'bg-green-500/20');
+
+            try {
+                const response = await fetch('/recommend-from-ids', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ track_ids: selectedIds })
+                });
+                const data = await response.json();
+
+                if (data.results) {
+                    list.innerHTML = data.results.map(t => `
+                        <div class="bg-white/5 p-3 rounded-2xl border border-white/5 hover:bg-white/10 transition group/rec relative">
+                            <img src="${t.image}" class="w-full aspect-square object-cover rounded-xl mb-3 shadow-lg">
+                            <div class="text-[11px] font-black text-white truncate mb-0.5">${t.name}</div>
+                            <div class="text-[9px] text-gray-500 font-bold truncate mb-3">${t.artist}</div>
+                            <button type="button" onclick="addTrackFromRecs('${t.uri}', '${t.id}', '${t.name.replace(/'/g, "\\'")}', '${t.artist.replace(/'/g, "\\'")}', '${t.image}')" 
+                                    class="w-full bg-green-500 hover:bg-green-400 text-black py-2 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all">
+                                    Añadir +
+                            </button>
+                        </div>
+                    `).join('');
+                    section.classList.remove('hidden');
+                    section.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                }
+            } catch (err) { console.error(err); }
+            finally {
+                btn.classList.remove('animate-pulse', 'bg-green-500/20');
+            }
+        }
+
+        function addTrackFromRecs(uri, id, name, artist, image) {
+            const container = document.getElementById('review-results-container');
+            const newIndex = document.querySelectorAll('.draggable-card').length;
+
+            // Simplified Card structure for recommendations injected into review
+            const html = `
+                <div id="card-group-${newIndex}" draggable="true"
+                    class="draggable-card border-b border-white/5 md:border md:rounded-2xl overflow-hidden group/card bg-black flex flex-col cursor-move">
+                    <div class="flex items-center gap-3 p-3 relative">
+                        <div class="shrink-0 text-white/20 group-hover/card:text-white/60 cursor-move">
+                            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path d="M4 8h16M4 16h16" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+                            </svg>
+                        </div>
+                        <div class="shrink-0">
+                            <div class="w-6 h-6 rounded-full border-2 border-green-500/50 flex items-center justify-center bg-green-500/20">
+                                <span class="block w-2.5 h-2.5 rounded-full bg-green-500 animate-pulse"></span>
+                            </div>
+                        </div>
+                        <div class="flex-1 min-w-0 pr-4">
+                            <div class="flex items-center gap-2 mb-2">
+                                <span class="text-[9px] font-black text-green-500/60 tracking-widest uppercase">Añadida</span>
+                                <span class="text-[11px] text-gray-400 font-medium truncate italic">"Sugerencia IA"</span>
+                            </div>
+                            <div class="play-preview flex items-center gap-4 group/play cursor-pointer bg-white/[0.03] p-3 rounded-2xl border border-white/5 active:bg-white/10 transition-colors w-full"
+                                data-id="${id}" data-url="" data-name="${name}" data-artist="${artist}" data-img="${image}">
+                                <div class="relative shrink-0">
+                                    <img src="${image}" class="h-12 w-12 object-cover rounded-lg shadow-lg">
+                                </div>
+                                <div class="min-w-0 flex-1">
+                                    <div class="font-bold text-white text-[15px] truncate leading-tight">${name}</div>
+                                    <div class="text-[11px] text-gray-400 truncate mt-0.5">${artist}</div>
+                                    <div class="flex items-center gap-3 mt-1.5 w-full">
+                                        <div class="ml-auto flex items-center gap-2">
+                                            <div class="flex items-center gap-1 px-3 py-2 bg-white/5 rounded-full border border-white/10 shrink-0 min-w-[65px] justify-center">
+                                                <span class="text-[10px] font-black text-green-500 uppercase tracking-tighter">BPM</span>
+                                                <span id="main-bpm-${newIndex}" class="text-xs text-white font-black">--</span>
+                                            </div>
+                                            <input type="checkbox" name="track_${id}" value="${uri}" checked class="hidden">
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <button type="button" onclick="this.closest('.draggable-card').remove()" class="shrink-0 p-2 text-gray-600 hover:text-red-500 transition-colors">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path d="M6 18L18 6M6 6l12 12" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" />
+                            </svg>
+                        </button>
+                    </div>
+                </div>
+            `;
+
+            const div = document.createElement('div');
+            div.innerHTML = html.trim();
+            const card = div.firstChild;
+            container.appendChild(card);
+
+            // Try to analyze BPM for the new card
+            if (typeof analyzeBPMForTrack === 'function') {
+                // This would need more wiring but let's keep it simple for now as per detail.html behavior
+            }
+
+            showToast(`Añadida: ${name}`, 'success');
+        }
+
+        // 7. Pro Tools: Energy Flow (BPM Optimization)
+        function optimizeReviewFlow() {
+            if (!confirm('¿Quieres ordenar la lista automáticamente por BPM (de menor a mayor)?')) return;
+
+            const container = document.getElementById('review-results-container');
+            const cards = Array.from(container.querySelectorAll('.draggable-card'));
+
+            const sortedCards = cards.sort((a, b) => {
+                const bpmA = parseInt(a.querySelector('[id^="main-bpm"]')?.innerText) || 0;
+                const bpmB = parseInt(b.querySelector('[id^="main-bpm"]')?.innerText) || 0;
+                return bpmA - bpmB;
+            });
+
+            // Re-append in sorted order
+            container.innerHTML = '';
+            sortedCards.forEach(card => container.appendChild(card));
+
+            showToast('Ordenado por BPM ⚡', 'success');
+        }
+
+        function toggleAllDetail() {
+            const btn = document.getElementById('master-toggle-btn');
+            const isExpanded = btn.getAttribute('data-expanded') === 'true';
+            const targetState = !isExpanded;
+
+            document.querySelectorAll('[id^="others-"]').forEach(el => {
+                if (targetState) el.classList.remove('hidden');
+                else el.classList.add('hidden');
+            });
+
+            btn.innerText = targetState ? 'Contraer' : 'Expandir';
+            btn.setAttribute('data-expanded', targetState);
+        }
+
+        function openConfirmModal() {
+            // Check if we need to collect URIs for a specific ordered list format
+            const container = document.getElementById('review-results-container');
+            const checkboxes = container.querySelectorAll('input[type="checkbox"]:checked');
+
+            if (checkboxes.length === 0) {
+                showToast("Por favor selecciona al menos una canción.", "error");
+                return;
+            }
+
+            // If we have sortable active, we should probably send them in order
+            // Let's create hidden inputs for the final order if needed, but existing checkbox loop in backend might handle it
+            // if we ensure they are processed in order. 
+            // The backend current logic:
+            /*
+            for key, value in form_data.items():
+                if key.startswith("track_") and value != "SKIP":
+                    selected_uris.append(value)
+            */
+            // Form data items order is normally preserved.
+
+            document.getElementById('main-form').submit();
+        }
+
+        let lastSearchResults = [];
+        let groupCounter = parseInt('{{ results| length }}') || 0; // Initialize with current count
+
+        async function addNewSearchGroup(query) {
+            if (!query.trim()) return;
+            const loader = document.getElementById('add-loader');
+            loader.classList.remove('hidden');
+
+            try {
+                const formData = new FormData();
+                formData.append('query', query);
+                const response = await fetch('/playlist/new/search-ajax', { method: 'POST', body: formData });
+                const data = await response.json();
+
+                if (data.results && data.results.length > 0) {
+                    lastSearchResults = data.results;
+                    renderSearchDropdown(data.results);
+                } else {
+                    renderSearchDropdown([]);
+                }
+            } catch (err) { console.error(err); }
+            finally {
+                loader.classList.add('hidden');
+            }
+        }
+
+        function renderSearchDropdown(results) {
+            const dropdown = document.getElementById('search-dropdown');
+            if (!results || results.length === 0) {
+                dropdown.innerHTML = '<div class="p-4 text-center text-gray-500 text-xs font-bold uppercase tracking-widest">Sin resultados</div>';
+                dropdown.classList.remove('hidden');
+                return;
+            }
+
+            const html = results.map((track, idx) => `
+            <div onclick="addTrackFromSearch(event, ${idx})" class="flex items-center gap-3 p-3 hover:bg-white/10 cursor-pointer border-b border-white/5 last:border-0 transition-colors group/item">
+                <img src="${track.image}" alt="${track.name} cover" class="w-10 h-10 rounded shadow-md object-cover">
+                <div class="flex-1 min-w-0">
+                    <div class="text-xs font-bold text-white truncate">${track.name}</div>
+                    <div class="text-[10px] font-bold text-gray-500 truncate uppercase tracking-widest">${track.artist}</div>
+                </div>
+                <button type="button" class="w-8 h-8 rounded-full bg-white/5 flex items-center justify-center text-green-500 hover:bg-green-500 hover:text-black transition-all">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M12 4v16m8-8H4" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                </button>
+            </div>
+        `).join('');
+
+            dropdown.innerHTML = html;
+            dropdown.classList.remove('hidden');
+        }
+
+        function addTrackFromSearch(event, idx) {
+            // Stop any accidental form submission
+            event.preventDefault();
+            event.stopPropagation();
+
+            const track = lastSearchResults[idx];
+            if (!track) return;
+
+            // Clear input first
+            const input = document.getElementById('add-song-input');
+            if (input) {
+                input.value = '';
+                input.focus(); // Re-focus for next search
+            }
+            document.getElementById('search-dropdown').classList.add('hidden'); // Hide dropdown immediately
+
+            renderNewGroup("Selección Manual", [track]);
+            showToast(`"${track.name}" agregada`, 'success');
+        }
+
+        // Close logic
+        document.addEventListener('click', (e) => {
+            const dropdown = document.getElementById('search-dropdown');
+            const input = document.getElementById('add-song-input');
+            if (dropdown && !dropdown.contains(e.target) && !input.contains(e.target)) {
+                dropdown.classList.add('hidden');
+            }
+        });
+
+        // Initialize drag on load (Removed old logic, Sortable.js handles this now)
+        document.addEventListener('DOMContentLoaded', () => {
+            // Sortable initialized above
+        });
+
+        // --- Cover Art Generator Logic ---
+        const coverModal = document.getElementById('cover-modal');
+        const coverCanvas = document.getElementById('cover-canvas');
+        const coverLoader = document.getElementById('cover-loader');
+        const hiddenInput = document.getElementById('hidden-cover-input');
+        let ctx = coverCanvas.getContext('2d');
+
+        function openCoverModal() {
+            coverModal.classList.remove('hidden');
+            generateCover('collage'); // Default
+        }
+
+        function updateCoverText() {
+            // Redraw current mode with new text
+            // We detect mode by checking which logic ran last or simpler: just default to collage if images exist, else gradient
+            // For simplicity, we can store currentMode variable
+            if (currentMode === 'collage') drawCollage();
+            else drawGradient();
+        }
+
+        function closeCoverModal() {
+            coverModal.classList.add('hidden');
+        }
+
+        let currentMode = 'collage';
+
+        async function generateCover(type) {
+            currentMode = type;
+            coverLoader.classList.remove('hidden');
+
+            ctx.clearRect(0, 0, coverCanvas.width, coverCanvas.height);
+            ctx.fillStyle = "#121212";
+            ctx.fillRect(0, 0, coverCanvas.width, coverCanvas.height);
+
+            try {
+                if (type === 'collage') {
+                    await drawCollage();
+                } else if (type === 'gradient') {
+                    drawGradient();
+                }
+            } catch (e) {
+                console.error("Cover generation failed", e);
+                // Fallback
+                drawGradient();
+            } finally {
+                coverLoader.classList.add('hidden');
+            }
+        }
+
+        // Helper for Center Crop
+        function drawImageProp(ctx, img, x, y, w, h, offsetX, offsetY) {
+            if (arguments.length === 2) {
+                x = y = 0;
+                w = ctx.canvas.width;
+                h = ctx.canvas.height;
+            }
+
+            // default offset is center
+            offsetX = typeof offsetX === "number" ? offsetX : 0.5;
+            offsetY = typeof offsetY === "number" ? offsetY : 0.5;
+
+            // keep bounds [0.0, 1.0]
+            if (offsetX < 0) offsetX = 0;
+            if (offsetY < 0) offsetY = 0;
+            if (offsetX > 1) offsetX = 1;
+            if (offsetY > 1) offsetY = 1;
+
+            var iw = img.width,
+                ih = img.height,
+                r = Math.min(w / iw, h / ih),
+                nw = iw * r,   // new prop. width
+                nh = ih * r,   // new prop. height
+                cx, cy, cw, ch, ar = 1;
+
+            // decide which gap to fill    
+            if (nw < w) ar = w / nw;
+            if (Math.abs(ar - 1) < 1e-14 && nh < h) ar = h / nh;  // updated
+            nw *= ar;
+            nh *= ar;
+
+            // calc source rectangle
+            cw = iw / (nw / w);
+            ch = ih / (nh / h);
+
+            cx = (iw - cw) * offsetX;
+            cy = (ih - ch) * offsetY;
+
+            // make sure source rectangle is valid
+            if (cx < 0) cx = 0;
+            if (cy < 0) cy = 0;
+            if (cw > iw) cw = iw;
+            if (ch > ih) ch = ih;
+
+            // fill image in dest. rectangle
+            ctx.drawImage(img, cx, cy, cw, ch, x, y, w, h);
+        }
+
+        async function drawCollage() {
+            // Find top 4 checked images
+            // We look for draggable cards that are checked
+            // Note: New search results or original ones both have checkboxes
+            const checkedInputs = Array.from(document.querySelectorAll('input[type="checkbox"]:checked'));
+            let imageUrls = [];
+
+            // Traverse up to find the img in the card group
+            for (let input of checkedInputs) {
+                // structure: label -> div -> div (row) -> draggable-card
+                // or just query closest .draggable-card then find img
+                const card = input.closest('.draggable-card');
+                if (card) {
+                    const img = card.querySelector('img');
+                    if (img && img.src) imageUrls.push(img.src);
+                }
+                if (imageUrls.length >= 4) break;
+            }
+
+            // If not enough images, fill with placeholders or duplicates
+            if (imageUrls.length === 0) {
+                drawGradient();
+                return;
+            }
+
+            // Load images
+            // We need to use crossOrigin = anonymous to export canvas later
+            const loadImage = (src) => new Promise((resolve, reject) => {
+                const img = new Image();
+                img.crossOrigin = "Anonymous";
+                img.onload = () => resolve(img);
+                img.onerror = () => resolve(null); // Fail graceful
+                img.src = src;
+            });
+
+            const images = await Promise.all(imageUrls.map(loadImage));
+            const validImages = images.filter(img => img !== null);
+
+            // Layout logic
+            if (validImages.length === 0) {
+                drawGradient();
+                return;
+            }
+
+            const size = 640;
+            const half = size / 2;
+
+            // Draw with Center Crop
+            if (validImages.length === 1) {
+                drawImageProp(ctx, validImages[0], 0, 0, size, size);
+            } else if (validImages.length === 2) {
+                drawImageProp(ctx, validImages[0], 0, 0, half, size);
+                drawImageProp(ctx, validImages[1], half, 0, half, size);
+            } else if (validImages.length === 3) {
+                drawImageProp(ctx, validImages[0], 0, 0, half, size);
+                drawImageProp(ctx, validImages[1], half, 0, half, half);
+                drawImageProp(ctx, validImages[2], half, half, half, half);
+            } else {
+                drawImageProp(ctx, validImages[0], 0, 0, half, half);
+                drawImageProp(ctx, validImages[1], half, 0, half, half);
+                drawImageProp(ctx, validImages[2], 0, half, half, half);
+                drawImageProp(ctx, validImages[3], half, half, half, half);
+            }
+
+            // Add Text Overlay
+            addTextOverlay();
+        }
+
+        function drawGradient() {
+            const size = 640;
+
+            // Random HSL pair
+            const h1 = Math.floor(Math.random() * 360);
+            const h2 = (h1 + 40 + Math.random() * 100) % 360;
+            const color1 = `hsl(${h1}, 80%, 60%)`;
+            const color2 = `hsl(${h2}, 80%, 40%)`;
+
+            const grd = ctx.createLinearGradient(0, 0, size, size);
+            grd.addColorStop(0, color1);
+            grd.addColorStop(1, color2);
+
+            ctx.fillStyle = grd;
+            ctx.fillRect(0, 0, size, size);
+
+            addTextOverlay();
+        }
+
+        function addTextOverlay() {
+            const text = document.getElementById('cover-text').value || "";
+            if (!text.trim()) return;
+
+            const size = 640;
+            ctx.fillStyle = "rgba(0,0,0,0.3)"; // Dim background slightly for text pop
+            ctx.fillRect(0, 0, size, size);
+
+            ctx.font = "900 80px Inter, sans-serif";
+            ctx.textAlign = "center";
+            ctx.textBaseline = "middle";
+            ctx.fillStyle = "white";
+            ctx.shadowColor = "rgba(0,0,0,0.8)";
+            ctx.shadowBlur = 30;
+            ctx.shadowOffsetX = 0;
+            ctx.shadowOffsetY = 10;
+
+            // Word wrap if too long? For now just scale down if huge
+            const metrics = ctx.measureText(text);
+            if (metrics.width > 580) {
+                const scale = 580 / metrics.width;
+                ctx.save();
+                ctx.translate(size / 2, size / 2);
+                ctx.scale(scale, scale);
+                ctx.fillText(text, 0, 0);
+                ctx.restore();
+            } else {
+                ctx.fillText(text, size / 2, size / 2);
+            }
+        }
+
+        function saveCover() {
+            try {
+                const dataUrl = coverCanvas.toDataURL('image/jpeg', 0.8);
+                hiddenInput.value = dataUrl;
+
+                // Show Preview in Search Bar (Top Left)
+                const previewContainer = document.getElementById('cover-preview-container');
+                const searchPreviewImg = document.getElementById('cover-preview-img');
+
+                if (searchPreviewImg) searchPreviewImg.src = dataUrl;
+                if (previewContainer) previewContainer.classList.remove('hidden');
+
+                showToast("Portada guardada", "success");
+                closeCoverModal();
+
+                // Update BOTTOM ACTION BUTTON visual state
+                // We search explicitly for the bottom button, falling back to the generic selector ONLY if ID is missing
+                const btn = document.getElementById('bottom-action-btn') || document.querySelector('button[onclick="openCoverModal()"]:not(#cover-preview-container)');
+
+                if (btn) {
+                    btn.innerHTML = `<img src="${dataUrl}" class="w-8 h-8 rounded-full object-cover border border-white/20 shadow-sm"> <span class="text-[10px] opacity-60">Editar</span>`;
+
+                    // Adjust styles for the "image mode"
+                    btn.classList.remove('bg-white/10', 'text-green-500', 'px-5', 'py-3');
+                    btn.classList.add('bg-transparent', 'text-white', 'p-1', 'pr-3', 'border', 'border-white/10');
+                }
+
+            } catch (e) {
+                console.error(e);
+                showToast("Error guardando portada (CORS)", "error");
+            }
+        }
+        function renderNewGroup(query, matches) {
+            const container = document.getElementById('review-results-container');
+            const groupIdx = groupCounter++;
+            const bestMatch = matches[0];
+            const others = matches.slice(1);
+
+            const html = `
+<div id="card-group-${groupIdx}" draggable="true"
+    class="draggable-card border-b border-white/5 md:border md:rounded-2xl overflow-hidden group/card bg-black flex flex-col cursor-move animate-in fade-in slide-in-from-top-2">
+    <div class="flex items-center gap-3 p-3 relative">
+        <div class="shrink-0 text-white/20 group-hover/card:text-white/60 cursor-move">
+             <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M4 8h16M4 16h16" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </div>
+        <div class="shrink-0">
+            <label class="cursor-pointer relative flex items-center justify-center w-6 h-6">
+                <input type="checkbox" name="track_${bestMatch.id}" value="${bestMatch.uri}" checked
+                    class="peer w-5 h-5 appearance-none border-2 border-white/10 rounded-full checked:bg-green-500 checked:border-green-500 transition-all bg-black/40">
+                <svg class="absolute w-3 h-3 text-black opacity-0 peer-checked:opacity-100 transition-all mt-0.5"
+                    viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="4">
+                    <polyline points="20 6 9 17 4 12"></polyline>
+                </svg>
+            </label>
+        </div>
+
+        <div class="flex-1 min-w-0 pr-4">
+            <div class="flex items-center gap-2 mb-2">
+                <span class="text-[9px] font-black text-blue-500/60 tracking-widest uppercase">Búsqueda</span>
+                <span class="text-[11px] text-gray-400 font-medium truncate italic">"${query}"</span>
+            </div>
+
+            <div class="play-preview flex items-center gap-4 group/play cursor-pointer bg-white/[0.03] p-3 rounded-2xl border border-white/5 active:bg-white/10 transition-colors w-full"
+                id="main-play-${groupIdx}"
+                data-id="${bestMatch.id}" data-url="${bestMatch.preview_url || ''}"
+                data-name="${bestMatch.name}" data-artist="${bestMatch.artist}" data-img="${bestMatch.image}">
+                <div class="relative shrink-0">
+                    <img src="${bestMatch.image}" alt="${bestMatch.name} cover" id="main-img-${groupIdx}" class="h-12 w-12 object-cover rounded-lg shadow-lg">
+                        <span id="btn-play-${bestMatch.id}" class="play-status-icon text-white text-2xl font-bold">▶</span>
+                </div>
+                <div class="min-w-0 flex-1">
+                    <div class="font-bold text-white text-[15px] truncate leading-tight" id="main-name-${groupIdx}">${bestMatch.name}</div>
+                    <div class="flex items-center gap-2 mt-0.5">
+                        <div class="text-[11px] text-gray-400 truncate" id="main-artist-${groupIdx}">${bestMatch.artist}</div>
+                    </div>
+                    
+                    <!-- Meta Badges -->
+                    <div class="flex items-center gap-3 mt-1.5 w-full">
+                        <!-- RIGHT ALIGNED ACTIONS -->
+                        <div class="ml-auto flex items-center gap-2">
+                             <!-- BPM Badge next to buttons -->
+                            <div class="flex items-center gap-1 px-3 py-2 bg-white/5 rounded-full border border-white/10">
+                                <span class="text-[10px] font-black text-green-500 uppercase tracking-tighter">BPM</span>
+                                <span id="main-bpm-${groupIdx}" class="text-xs text-white font-black">${bestMatch.bpm || '0'}</span>
+                            </div>
+
+                            ${bestMatch.preview_url ? `
+                             <button type="button" id="main-preview-btn-${groupIdx}"
+                                class="play-preview relative overflow-hidden flex items-center justify-center gap-2 px-4 py-2 bg-green-500/10 hover:bg-green-500 hover:text-black border border-green-500/20 rounded-full transition-all group/btn min-w-[150px]"
+                                data-id="${bestMatch.id}" data-url="${bestMatch.preview_url}"
+                                data-name="${bestMatch.name}" data-artist="${bestMatch.artist}" data-img="${bestMatch.image}">
+                                <div class="absolute bottom-0 left-0 w-full h-1 bg-white/10 pointer-events-none">
+                                    <div class="btn-progress h-full bg-green-500 w-0 transition-all duration-100" data-id="${bestMatch.id}"></div>
+                                </div>
+                                <span class="text-xs font-black uppercase tracking-widest text-green-500 group-hover/btn:text-black" id="text-play-${bestMatch.id}">Play Preview</span>
+                                <!-- Play Icon -->
+                                <svg id="icon-play-${bestMatch.id}" class="w-4 h-4 text-green-500 group-hover/btn:text-black" fill="currentColor" viewBox="0 0 24 24">
+                                    <path d="M8 5v14l11-7z" />
+                                </svg>
+                                <!-- Pause Icon -->
+                                <svg id="icon-pause-${bestMatch.id}" class="w-4 h-4 text-green-500 group-hover/btn:text-black hidden" fill="currentColor" viewBox="0 0 24 24">
+                                    <path d="M6 4h4v16H6zm8 0h4v16h-4z" />
+                                </svg>
+                            </button>
+                            ` : ''}
+                        </div>
+                    </div>
+                </div>
+                ${bestMatch.preview_url ? `<audio id="audio-${bestMatch.id}" src="${bestMatch.preview_url}"
+                    preload="none"></audio>` : ''}
+            </div>
+
+            ${others.length > 0 ? `
+            <button type="button" onclick="toggleOthers('${groupIdx}')"
+                class="mt-2 text-[9px] font-bold text-blue-400 bg-blue-500/10 px-2 py-0.5 rounded border border-blue-500/10">
+                + ${others.length} más
+            </button>
+            ` : ''}
+        </div>
+
+        <button type="button" onclick="this.closest('.draggable-card').remove()"
+            class="shrink-0 p-2 text-gray-600 hover:text-red-500 transition-colors opacity-100 md:opacity-0 group-hover/card:opacity-100">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path d="M6 18L18 6M6 6l12 12" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" />
+            </svg>
+        </button>
+    </div>
+
+    ${others.length > 0 ? `
+    <div id="others-${groupIdx}" class="hidden px-4 pb-4 animate-in fade-in slide-in-from-top-2 duration-200">
+        <div class="bg-black/20 rounded-2xl p-2 border border-white/5 space-y-1">
+            ${others.map((m, i) => `
+            <div class="flex items-center gap-4 p-2 hover:bg-white/5 rounded-xl transition-all group/sub"
+                id="sub-card-${groupIdx}-${i + 1}" data-img="${m.image}" data-name="${m.name}" data-artist="${m.artist}" 
+                data-id="${m.id}" data-bpm="${m.bpm || '0'}" data-key="${m.key || '?'}" data-preview="${m.preview_url || ''}">
+                <label class="cursor-pointer relative flex items-center justify-center w-5 h-5 shrink-0 ml-2">
+                    <input type="checkbox" name="track_${m.id}" value="${m.uri}" 
+                        onclick="selectCardSafe('${groupIdx}', '${i + 1}')"
+                        class="peer w-4 h-4 appearance-none border-2 border-white/10 rounded-full checked:bg-green-500 checked:border-green-500 transition-all bg-black/40 sub-checkbox-${groupIdx}">
+                    <svg class="absolute w-2.5 h-2.5 text-black opacity-0 peer-checked:opacity-100 transition-all mt-0.5"
+                        viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="4">
+                        <polyline points="20 6 9 17 4 12"></polyline>
+                    </svg>
+                </label>
+                 <!-- Swap Button -->
+                <button type="button" onclick="selectCardSafe('${groupIdx}', '${i + 1}')" 
+                    class="shrink-0 p-2 bg-white/5 hover:bg-green-500 hover:text-black rounded-full transition-all group/swap mr-2" title="Sustituir principal con esta versión">
+                    <svg class="w-4 h-4 text-gray-400 group-hover/swap:text-black" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M7 16V4m0 0L3 8m4-4l4 4m6 0v12m0 0l4-4m-4 4l-4-4" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                </button>
+                <div class="play-preview flex-1 min-w-0 flex items-center gap-3 cursor-pointer"
+                    data-id="${m.id}" data-url="${m.preview_url || ''}"
+                    data-name="${m.name}" data-artist="${m.artist}" data-img="${m.image}">
+                    <img src="${m.image}" alt="${m.name} thumbnail"
+                        class="h-8 w-8 object-cover rounded shadow-md opacity-60 group-hover/sub:opacity-100 transition-opacity">
+                    <div class="min-w-0 flex-1">
+                        <div class="font-bold text-white text-[11px] truncate flex items-center gap-2">
+                             <span id="btn-play-${m.id}" class="play-status-icon text-green-500">▶</span>
+                             ${m.name}
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <div class="text-[8px] text-gray-500 truncate uppercase font-black tracking-widest">
+                                ${m.artist}</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            `).join('')}
+        </div>
+    </div>
+    ` : ''}
+</div>
+`;
+            container.insertAdjacentHTML('afterbegin', html);
+
+            // Attach drag events to the new element
+            const newGroup = document.getElementById(`card-group-${groupIdx}`);
+            if (newGroup) addDragEvents(newGroup);
+
+        }
+
+        function clearGroup(groupId) {
+            const group = document.getElementById(groupId);
+            if (group) group.querySelectorAll('input[type="checkbox"]').forEach(cb => cb.checked = false);
+        }
+        function syncTitle(val) {
+            document.getElementById('hidden-playlist-name').value = val;
+        }
+
+        // Swap Logic using hidden data inputs would be ideal, but for now we trust DOM structure
+        // We will simple reload the page with new query? No, we need front-end swap.
+        // Let's implement a visual swap by swapping HTML content of Main Card and Specific Sub Card
+
+        // BETTER APPROACH: 
+        // The structure is specific. We have a "Main Card" area and "Sub Cards".
+        // We can swap the data-attributes or just the visible HTML elements.
+
+        function selectCard(groupIndex, subIndex) {
+            // Enforce Radio Behavior
+            document.querySelectorAll(`.sub-checkbox-${groupIndex}`).forEach(cb => {
+                cb.checked = false;
+            });
+
+            // Get Sub Card Container
+            const subCard = document.getElementById(`sub-card-${groupIndex}-${subIndex}`);
+            if (!subCard) return;
+
+            // Check Input
+            const subInput = subCard.querySelector('input[type="checkbox"]');
+            if (subInput) subInput.checked = true;
+
+            // Retrieve Data
+            const d = subCard.dataset;
+            if (!d) return;
+
+            // Update Main Card (Robust IDs)
+            const mainImg = document.getElementById(`main-img-${groupIndex}`);
+            const mainName = document.getElementById(`main-name-${groupIndex}`);
+            const mainArtist = document.getElementById(`main-artist-${groupIndex}`);
+            const mainPlayDiv = document.getElementById(`main-play-${groupIndex}`);
+            const mainPreviewBtn = document.getElementById(`main-preview-btn-${groupIndex}`);
+            const mainPlayIcon = mainPlayDiv ? mainPlayDiv.querySelector('.play-status-icon') : null;
+
+            if (mainImg) mainImg.src = d.img;
+            if (mainName) mainName.innerText = d.name;
+            if (mainArtist) mainArtist.innerText = d.artist;
+
+            // Update Play Handlers
+            if (mainPlayDiv) {
+                mainPlayDiv.classList.add('play-preview');
+                mainPlayDiv.dataset.id = d.id;
+                mainPlayDiv.dataset.url = d.preview || '';
+                mainPlayDiv.dataset.name = d.name;
+                mainPlayDiv.dataset.artist = d.artist;
+                mainPlayDiv.dataset.img = d.img;
+                if (mainPlayIcon) mainPlayIcon.id = `btn-play-${d.id}`;
+            }
+            if (mainPreviewBtn) {
+                mainPreviewBtn.classList.add('play-preview');
+                mainPreviewBtn.dataset.id = d.id;
+                mainPreviewBtn.dataset.url = d.preview || '';
+                mainPreviewBtn.dataset.name = d.name;
+                mainPreviewBtn.dataset.artist = d.artist;
+                mainPreviewBtn.dataset.img = d.img;
+
+                // Update icons inside preview button
+                const iconPlay = mainPreviewBtn.querySelector('svg[id^="icon-play-"]');
+                const iconPause = mainPreviewBtn.querySelector('svg[id^="icon-pause-"]');
+                const textPlay = mainPreviewBtn.querySelector('span[id^="text-play-"]');
+
+                if (iconPlay) iconPlay.id = `icon-play-${d.id}`;
+                if (iconPause) iconPause.id = `icon-pause-${d.id}`;
+                if (textPlay) textPlay.id = `text-play-${d.id}`;
+
+                // Reset state
+                if (iconPlay) iconPlay.classList.remove('hidden');
+                if (iconPause) iconPause.classList.add('hidden');
+
+                // Update progress bar data-id
+                const btnProg = mainPreviewBtn.querySelector('.btn-progress');
+                if (btnProg) {
+                    btnProg.dataset.id = d.id;
+                    btnProg.style.width = '0%';
+                }
+            }
+
+            // Highlight Row
+            const group = document.getElementById(`card-group-${groupIndex}`);
+            if (group) {
+                group.querySelectorAll('.group\\/sub').forEach(el => el.classList.remove('bg-white/10', 'border-green-500'));
+            }
+            subCard.classList.add('bg-white/10');
+
+            showToast("Selección actualizada", "success");
+        }
+        function selectCardSafe(groupIndex, subIndex) {
+            try {
+                // Debug Log
+                // console.log("Selecting:", groupIndex, subIndex);
+
+                // Enforce Radio Behavior
+                document.querySelectorAll(`.sub-checkbox-${groupIndex}`).forEach(cb => {
+                    cb.checked = false;
+                });
+
+                // Get Sub Card Container
+                const subId = `sub-card-${groupIndex}-${subIndex}`;
+                const subCard = document.getElementById(subId);
+                if (!subCard) {
+                    alert("Error interno: No se encuentra " + subId + ". Por favor refresca la página.");
+                    return;
+                }
+
+                // Check Input
+                const subInput = subCard.querySelector('input[type="checkbox"]');
+                if (subInput) subInput.checked = true;
+
+                // Retrieve Data
+                const d = subCard.dataset;
+                if (!d) {
+                    alert("Error: Datos de la canción no leíbles.");
+                    return;
+                }
+
+                // Update Main Card (Robust IDs)
+                let mid = `main-img-${groupIndex}`;
+                const mainImg = document.getElementById(mid);
+                const mainPlayDiv = document.getElementById(`main-play-${groupIndex}`);
+                const mainPreviewBtn = document.getElementById(`main-preview-btn-${groupIndex}`);
+
+                // Fallback Logic if ID not found (sometimes Jinja loops behave oddly)
+                if (!mainImg) {
+                    const group = document.getElementById(`card-group-${groupIndex}`);
+                    if (group) {
+                        const fbImg = group.querySelector('.group\\/play img');
+                        if (fbImg) {
+                            fbImg.src = d.img || ''; // Update found image
+                        }
+
+                        // Try to update texts via class selectors if ID missing
+                        const fbName = group.querySelector('.group\\/play .font-bold.text-white');
+                        if (fbName) fbName.innerText = d.name || '...';
+
+                        const fbArtist = group.querySelector('.group\\/play .text-gray-400');
+                        if (fbArtist) fbArtist.innerText = d.artist || '...';
+                    }
+                } else {
+                    mainImg.src = d.img || '';
+                }
+
+                // Standard ID updates if elements exist
+                const mainName = document.getElementById(`main-name-${groupIndex}`);
+                if (mainName) mainName.innerText = d.name || '';
+
+                const mainArtist = document.getElementById(`main-artist-${groupIndex}`);
+                if (mainArtist) mainArtist.innerText = d.artist || '';
+
+                console.log("DEBUG: selectCardSafe - data:", d);
+                const mainBpm = document.getElementById(`main-bpm-${groupIndex}`);
+                if (mainBpm) {
+                    mainBpm.innerText = d.bpm || '0';
+                    mainBpm.setAttribute('data-preview', d.preview || '');
+                    console.log(`DEBUG: Set main-bpm-${groupIndex} to ${d.bpm}, preview: ${d.preview}`);
+
+                    // Trigger detection if 0
+                    if (window.analyzeSingleElement) {
+                        window.analyzeSingleElement(mainBpm);
+                    }
+                }
+
+                // Update Audio & Play Button
+                const rawPreview = d.preview === 'None' ? '' : (d.preview || '');
+                if (mainPlayDiv) {
+                    mainPlayDiv.classList.add('play-preview');
+                    mainPlayDiv.dataset.id = d.id;
+                    mainPlayDiv.dataset.url = rawPreview;
+                    mainPlayDiv.dataset.name = d.name;
+                    mainPlayDiv.dataset.artist = d.artist;
+                    mainPlayDiv.dataset.img = d.img;
+                    const mainPlayIcon = mainPlayDiv.querySelector('.play-status-icon');
+                    if (mainPlayIcon) mainPlayIcon.id = `btn-play-${d.id}`;
+                }
+                if (mainPreviewBtn) {
+                    mainPreviewBtn.classList.add('play-preview');
+                    mainPreviewBtn.dataset.id = d.id;
+                    mainPreviewBtn.dataset.url = rawPreview;
+                    mainPreviewBtn.dataset.name = d.name;
+                    mainPreviewBtn.dataset.artist = d.artist;
+                    mainPreviewBtn.dataset.img = d.img;
+
+                    // Smart Icon Update
+                    const iconPlay = mainPreviewBtn.querySelector('[id^="icon-play-"]');
+                    const iconPause = mainPreviewBtn.querySelector('[id^="icon-pause-"]');
+                    const textPlay = mainPreviewBtn.querySelector('[id^="text-play-"]');
+
+                    if (iconPlay) iconPlay.id = `icon-play-${d.id}`;
+                    if (iconPause) iconPause.id = `icon-pause-${d.id}`;
+                    if (textPlay) textPlay.id = `text-play-${d.id}`;
+
+                    if (iconPlay) iconPlay.classList.remove('hidden');
+                    if (iconPause) iconPause.classList.add('hidden');
+
+                    const btnProg = mainPreviewBtn.querySelector('.btn-progress');
+                    if (btnProg) {
+                        btnProg.dataset.id = d.id;
+                        btnProg.style.width = '0%';
+                    }
+                }
+
+                // Highlight Active Row in List
+                const group = document.getElementById(`card-group-${groupIndex}`);
+                if (group) {
+                    group.querySelectorAll('.group\\/sub').forEach(el => el.classList.remove('bg-white/10', 'border-green-500'));
+                }
+                subCard.classList.add('bg-white/10');
+
+                showToast("Selección sustituida correctamente", "success");
+
+            } catch (e) {
+                alert("Error crítico al cambiar tarjeta: " + e.message);
+                console.error(e);
+            }
+        }
+
+        // --- CONFIRMATION MODAL LOGIC (SORTABLE) ---
+        // --- CONFIRMATION MODAL LOGIC (SORTABLE) ---
+        let modalDragSrc = null;
+
+        async function openConfirmModal() {
+            const modal = document.getElementById('confirm-modal');
+            const listContainer = document.getElementById('confirm-list');
+            // Specific selector for track checkboxes
+            const checkboxes = document.querySelectorAll('input[name^="track_"]:checked');
+
+            // 1. Sync Header Info
+            const titleInput = document.getElementById('playlist-title-input');
+            const modalTitle = document.getElementById('modal-playlist-name');
+            if (titleInput && modalTitle) modalTitle.innerText = titleInput.value || "Mi Playlist";
+
+            const modalCover = document.getElementById('modal-cover-preview');
+            const hiddenInput = document.getElementById('hidden-cover-input');
+            const canvas = document.getElementById('cover-canvas');
+
+            // FORCE COLLAGE GENERATION if no custom cover set
+            if (modalCover && canvas) {
+                try {
+                    // Only regenerate if user hasn't uploaded/selected a specific custom cover (flag via hidden input?)
+                    // Actually, let's always update the canvas view for the receipt unless locked.
+                    // If hiddenInput has value (base64 from manual save), use it.
+                    if (hiddenInput && hiddenInput.value) {
+                        modalCover.src = hiddenInput.value;
+                    } else {
+                        // Generate fresh collage from current selection
+                        await generateCover('collage');
+                        modalCover.src = canvas.toDataURL();
+                    }
+                } catch (err) {
+                    console.error("Auto-cover generation failed:", err);
+                    // Fallback to first image
+                    const firstImg = document.querySelector('input[name^="track_"]:checked')?.closest('[data-img]')?.dataset.img;
+                    if (firstImg) modalCover.src = firstImg;
+                }
+            }
+
+            // 2. Build List
+            listContainer.innerHTML = '';
+            let count = 0;
+
+            checkboxes.forEach((cb, index) => {
+                const card = cb.closest('[data-name]');
+                if (card) {
+                    const d = card.dataset;
+                    count++;
+
+                    const item = document.createElement('div');
+                    item.className = "flex items-center gap-3 p-2 bg-white/5 rounded-lg border border-white/5 hover:border-green-500/30 transition-all cursor-move group modal-item";
+                    item.draggable = true;
+                    item.dataset.uri = cb.value; // Store URI for final submission sync
+
+                    item.innerHTML = `
+                        <!-- Drag Handle -->
+                        <div class="text-gray-600 group-hover:text-white transition-colors cursor-grab active:cursor-grabbing px-1">
+                            <svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 8h16M4 16h16" />
+                            </svg>
+                        </div>
+                        
+                        <img src="${d.img || ''}" class="w-10 h-10 rounded shadow object-cover pointer-events-none">
+                        
+                        <div class="min-w-0 flex-1">
+                            <div class="text-white font-bold text-xs truncate leading-tight">${d.name}</div>
+                            <div class="text-gray-500 text-[9px] uppercase font-black tracking-widest truncate">${d.artist}</div>
+                        </div>
+                        
+                        <div class="text-[10px] font-mono text-gray-600 grid-idx">${count}</div>
+                    `;
+
+                    // Attach Events
+                    item.addEventListener('dragstart', handleModalDragStart);
+                    item.addEventListener('dragover', handleModalDragOver);
+                    item.addEventListener('dragenter', e => e.preventDefault());
+                    item.addEventListener('drop', handleModalDrop);
+                    item.addEventListener('dragend', handleModalDragEnd);
+
+                    listContainer.appendChild(item);
+                }
+            });
+
+            document.getElementById('confirm-count').innerText = count;
+            modal.classList.remove('hidden');
+        }
+
+        function closeConfirmModal() {
+            document.getElementById('confirm-modal').classList.add('hidden');
+        }
+
+        // --- MODAL DRAG HANDLERS ---
+        function handleModalDragStart(e) {
+            modalDragSrc = this;
+            e.dataTransfer.effectAllowed = 'move';
+            e.dataTransfer.setData('text/html', this.innerHTML);
+            this.style.opacity = '0.4';
+        }
+
+        function handleModalDragOver(e) {
+            if (e.preventDefault) e.preventDefault();
+            e.dataTransfer.dropEffect = 'move';
+
+            if (modalDragSrc !== this) {
+                const rect = this.getBoundingClientRect();
+                const offset = e.clientY - rect.top - (rect.height / 2);
+                if (offset < 0) {
+                    this.parentNode.insertBefore(modalDragSrc, this);
+                } else {
+                    this.parentNode.insertBefore(modalDragSrc, this.nextSibling);
+                }
+            }
+            return false;
+        }
+
+        function handleModalDrop(e) {
+            if (e.stopPropagation) e.stopPropagation();
+            return false;
+        }
+
+        function handleModalDragEnd() {
+            this.style.opacity = '1';
+            modalDragSrc = null;
+            // Update indices visually
+            document.querySelectorAll('#confirm-list .grid-idx').forEach((el, idx) => {
+                el.innerText = idx + 1;
+            });
+        }
+
+        function submitFinal() {
+            const btn = document.getElementById('final-confirm-btn');
+            const originalText = btn.innerHTML;
+            btn.innerHTML = `<svg class="animate-spin h-5 w-5 text-black" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg> <span class="tracking-widest">CREANDO...</span>`;
+            btn.disabled = true;
+
+            // 1. RECONSTRUCT FORM based on MODAL ORDER
+            // This ensures the user's reordering in the modal is what gets submitted
+            const form = document.getElementById('main-form');
+            const modalItems = document.querySelectorAll('#confirm-list .modal-item');
+
+            // Remove existing checkbox inputs to avoid duplicates/confusion
+            // We kept them in the DOM to read data, but now we replace them with a clean ordered list
+            // Strategy: Create a new hidden container or just append hidden inputs and disable old ones
+
+            // Better: Create a dynamic hidden div
+            const syncContainer = document.createElement('div');
+            syncContainer.hidden = true;
+
+            modalItems.forEach((item, index) => {
+                if (item.dataset.uri) {
+                    const input = document.createElement('input');
+                    input.type = 'hidden';
+                    input.name = 'final_uris'; // Backend can read this list
+                    input.value = item.dataset.uri;
+                    syncContainer.appendChild(input);
+
+                    // Fallback compatibility: Append old 'track_ID' format if needed by backend, 
+                    // but 'final_uris' list is safer for strict ordering.
+                    // For now, let's assume backend iterates request.form.getlist('track_...')
+                    // To enforce order, we should change backend to read a single ordered list
+                    // OR we just use the list.
+                }
+            });
+
+            form.appendChild(syncContainer);
+
+            // Note: Use a flag in form url or handle 'final_uris' in backend 
+            // OR simpler: Disable all original checkboxes so only new ordered inputs count?
+            // Actually, standard HTML form submission doesn't guarantee order of keys unless it's a list.
+            // Let's add a flag input to tell backend to look for 'final_uris'
+
+            const flag = document.createElement('input');
+            flag.type = 'hidden';
+            flag.name = 'use_ordered_list';
+            flag.value = 'true';
+            form.appendChild(flag);
+
+            form.submit();
+        }
+    </script>
+
+    <!-- Ultra-Premium Confirmation Modal -->
+    <div id="confirm-modal" class="fixed inset-0 z-[200] hidden">
+        <!-- Backdrop -->
+        <div class="absolute inset-0 bg-black/80 backdrop-blur-xl transition-all duration-500"
+            onclick="closeConfirmModal()"></div>
+
+        <!-- Modal Card -->
+        <div class="absolute inset-0 flex items-center justify-center p-4">
+            <div
+                class="bg-[#121212] bg-gradient-to-b from-green-900/20 to-[#121212] border border-green-500/30 w-full max-w-md rounded-[2rem] relative shadow-[0_0_50px_rgba(29,185,84,0.2)] flex flex-col h-[85vh] overflow-hidden animate-in zoom-in-95 duration-200">
+
+                <!-- 1. Header: Cover & Name (Fixed) -->
+                <div class="shrink-0 flex flex-col items-center pt-8 px-6 pb-2">
+                    <!-- Mini Cover Preview -->
+                    <div
+                        class="w-24 h-24 rounded-xl shadow-lg overflow-hidden mb-4 border border-white/10 relative group">
+                        <img id="modal-cover-preview" src="" alt="Cover preview" class="w-full h-full object-cover">
+                        <div class="absolute inset-0 bg-black/10 group-hover:bg-transparent transition-colors"></div>
+                    </div>
+
+                    <!-- Playlist Info -->
+                    <h3 id="modal-playlist-name"
+                        class="text-xl font-black text-white text-center tracking-tight mb-1 truncate w-full px-4">Mi
+                        Playlist</h3>
+                    <div class="flex items-center gap-2">
+                        <span class="text-[10px] uppercase font-bold text-gray-500 tracking-widest">Total</span>
+                        <span class="bg-white/10 text-white px-2 py-0.5 rounded text-[10px] font-bold"
+                            id="confirm-count">0</span>
+                    </div>
+                </div>
+
+                <!-- 2. Scrollable Sortable List (Flexible) -->
+                <div
+                    class="flex-1 min-h-0 overflow-hidden relative mx-6 mb-4 bg-black/30 rounded-xl border border-white/5">
+                    <div class="absolute inset-0 overflow-y-auto custom-scrollbar p-2 space-y-1" id="confirm-list">
+                        <!-- Dynamic Draggable Items go here -->
+                    </div>
+                    <!-- Fade -->
+                    <div
+                        class="absolute top-0 left-0 w-full h-4 bg-gradient-to-b from-black/40 to-transparent pointer-events-none">
+                    </div>
+                    <div
+                        class="absolute bottom-0 left-0 w-full h-4 bg-gradient-to-t from-black/40 to-transparent pointer-events-none">
+                    </div>
+                </div>
+
+                <!-- Footer Actions (Fixed Bottom) -->
+                <div
+                    class="shrink-0 flex flex-col gap-3 relative z-20 px-6 pb-8 pt-2 bg-gradient-to-t from-[#121212] to-transparent">
+                    <button id="final-confirm-btn" onclick="submitFinal()"
+                        class="w-full bg-white hover:bg-green-500 hover:text-black text-black font-black text-sm uppercase tracking-widest py-4 rounded-xl transition-all hover:scale-[1.02] active:scale-[0.98] shadow-lg flex items-center justify-center gap-2 group">
+                        <span>{% if editing %}Guardar Cambios{% else %}Confirmar y Crear{% endif %}</span>
+                        <svg class="w-5 h-5 group-hover:translate-x-1 transition-transform" fill="none"
+                            stroke="currentColor" viewBox="0 0 24 24">
+                            <path d="M5 13l4 4L19 7" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" />
+                        </svg>
+                    </button>
+
+                    <button onclick="closeConfirmModal()"
+                        class="w-full bg-white/5 hover:bg-white/10 border border-white/5 hover:border-white/20 text-gray-400 hover:text-white font-black text-sm uppercase tracking-widest py-4 rounded-xl transition-all hover:scale-[1.01] active:scale-[0.98] shadow-lg flex items-center justify-center gap-2">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path d="M11 17l-5-5m0 0l5-5m-5 5h12" stroke-width="2" stroke-linecap="round"
+                                stroke-linejoin="round" />
+                        </svg>
+                        Editar / Volver
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="{{ url_for('static', filename='js/bpm-analyzer.js') }}"></script>
+    {% endblock %}

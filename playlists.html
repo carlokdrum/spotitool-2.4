@@ -1,0 +1,233 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="h-full flex flex-col p-4 md:p-8 overflow-hidden w-full max-w-7xl mx-auto">
+    <header class="mb-4 flex justify-between items-end shrink-0">
+        <div>
+            <h2 class="text-2xl md:text-3xl font-bold mb-1">Mis Playlists en Spotify</h2>
+            <p class="text-gray-400 text-sm">Total: {{ playlists|length }} playlists encontradas.</p>
+        </div>
+        <!-- View Toggles -->
+        <div class="flex bg-neutral-900 rounded-lg p-1 border border-neutral-800">
+            <button type="button" onclick="setView('grid')" id="btn-grid"
+                class="p-2 rounded hover:bg-white/10 text-white transition bg-neutral-800">
+                <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                        d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" />
+                </svg>
+            </button>
+            <button type="button" onclick="setView('list')" id="btn-list"
+                class="p-2 rounded hover:bg-white/10 text-gray-400 transition">
+                <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16" />
+                </svg>
+            </button>
+        </div>
+    </header>
+
+    <div class="flex-1 overflow-y-auto custom-scrollbar pr-2 relative pb-32">
+
+        {% if playlists %}
+
+        <!-- GRID VIEW -->
+        <div id="view-grid"
+            class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-6 transition-opacity duration-300">
+            {% for p in playlists %}
+            <div
+                class="bg-neutral-900 p-4 rounded-lg hover:bg-neutral-800 transition group flex flex-col h-full border border-transparent hover:border-neutral-700 relative">
+
+                <!-- Image (Explicit Link) -->
+                <a href="/playlist/{{ p.id }}"
+                    class="relative aspect-square mb-4 bg-neutral-800 rounded-md overflow-hidden shadow-lg block">
+                    {% if p.images and p.images|length > 0 %}
+                    <img src="{{ p.images[0].url }}" class="w-full h-full object-cover">
+                    {% else %}
+                    <div class="w-full h-full flex items-center justify-center text-neutral-600 text-4xl">🎵</div>
+                    {% endif %}
+
+                    <!-- Play Button Overlay -->
+                    <!-- UPDATED: Explicit internal link -->
+                    <div
+                        class="absolute bottom-2 right-2 bg-green-500 rounded-full w-10 h-10 flex items-center justify-center shadow-xl opacity-0 translate-y-2 group-hover:opacity-100 group-hover:translate-y-0 transition duration-200 hover:scale-110 text-black">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="3">
+                            <path stroke-linecap="round" stroke-linejoin="round"
+                                d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L6.832 19.82a4.5 4.5 0 0 1-1.897 1.13l-2.685.8.8-2.685a4.5 4.5 0 0 1 1.13-1.897L16.863 4.487Zm0 0L19.5 7.125" />
+                        </svg>
+                    </div>
+                </a>
+
+                <!-- Delete Action (Top Right) -->
+                {% if current_user_id %}
+                <form onsubmit="handleDelete(event, '{{ p.id }}', this.closest('.group'))"
+                    class="absolute top-6 right-6 opacity-0 group-hover:opacity-100 transition duration-200 z-20">
+                    <input type="hidden" name="playlist_id" value="{{ p.id }}">
+                    <button type="submit"
+                        class="bg-black/50 hover:bg-red-600 rounded-full w-8 h-8 flex items-center justify-center text-white backdrop-blur-sm transition"
+                        title="Eliminar Playlist">
+                        🗑
+                    </button>
+                </form>
+                {% endif %}
+
+                <!-- Title (Explicit Link) -->
+                <a href="/playlist/{{ p.id }}"
+                    class="font-bold text-white text-sm line-clamp-2 w-full leading-tight mb-auto hover:underline"
+                    title="{{ p.name }}">
+                    {{ p.name }}
+                </a>
+
+                <div class="text-sm text-gray-400 mt-2 flex justify-between items-center">
+                    <span class="truncate max-w-[60%] text-xs">{{ p.owner.display_name }}</span>
+                    <span
+                        class="bg-neutral-800 px-2 py-0.5 rounded text-[10px] text-gray-400 border border-neutral-700 font-mono">{{
+                        p.tracks.total }}</span>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+
+        <!-- LIST VIEW -->
+        <div id="view-list" class="hidden flex flex-col gap-2">
+            {% for p in playlists %}
+            <div
+                class="group flex items-center gap-4 p-3 rounded-lg hover:bg-neutral-900 transition border border-transparent hover:border-neutral-800">
+                <!-- Image (Link) -->
+                <a href="/playlist/{{ p.id }}"
+                    class="w-12 h-12 flex-shrink-0 bg-neutral-800 rounded overflow-hidden block relative z-10 hover:opacity-80 transition">
+                    {% if p.images and p.images|length > 0 %}
+                    <img src="{{ p.images[0].url }}" class="w-full h-full object-cover">
+                    {% else %}
+                    <div class="w-full h-full flex items-center justify-center text-neutral-600">🎵</div>
+                    {% endif %}
+                </a>
+
+                <!-- Info -->
+                <div class="flex-1 min-w-0 grid grid-cols-1 md:grid-cols-3 gap-4 items-center">
+                    <a href="/playlist/{{ p.id }}" class="font-bold text-white truncate text-sm hover:underline z-10">{{
+                        p.name }}</a>
+                    <div class="text-gray-400 text-xs hidden md:block">Por {{ p.owner.display_name }}</div>
+                    <div class="text-gray-500 text-xs font-mono hidden md:block">{{ p.tracks.total }} canciones</div>
+                </div>
+
+                <!-- Actions -->
+                <div class="flex items-center gap-4 z-10">
+                    <!-- Explicit Open Button -->
+                    <a href="/playlist/{{ p.id }}"
+                        class="text-xs bg-neutral-800 hover:bg-white hover:text-black text-gray-300 px-3 py-1.5 rounded-full transition font-bold">
+                        ABRIR
+                    </a>
+
+                    {% if current_user_id %}
+                    <form action="/delete-playlist" method="POST" onsubmit="return confirm('¿Seguro?');">
+                        <input type="hidden" name="playlist_id" value="{{ p.id }}">
+                        <button type="submit" class="text-gray-600 hover:text-red-500 transition p-2">🗑</button>
+                    </form>
+                    {% endif %}
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+
+        {% else %}
+        {% if not session.get('client_id') %}
+        <div class="text-center py-20 bg-neutral-900 rounded-xl">
+            <p class="text-gray-400 mb-4">Conecta tus credenciales primero en la pestaña "Crear".</p>
+            <a href="/" class="bg-green-500 text-black px-6 py-3 rounded-full font-bold">Ir a Inicio</a>
+        </div>
+        {% else %}
+        <div class="text-center py-20 text-gray-500">
+            <p>No se encontraron playlists o hubo un error de conexión.</p>
+        </div>
+        {% endif %}
+        {% endif %}
+    </div>
+</div>
+</div>
+
+<script>
+    async function handleDelete(event, playlistId, element) {
+        event.preventDefault();
+
+        // NO CONFIRMATION - Immediate Action
+
+        try {
+            const formData = new FormData();
+            formData.append('playlist_id', playlistId);
+            formData.append('ajax', '1');
+
+            const response = await fetch('/delete-playlist', {
+                method: 'POST',
+                body: formData
+            });
+
+            const data = await response.json();
+
+            if (data.success) {
+                // IN-PLACE SUCCESS ANIMATION
+                element.innerHTML = `
+                    <div class="w-full h-full min-h-[100px] flex items-center justify-center animate-fade-in relative">
+                         <div class="w-16 h-16 rounded-full border-4 border-green-500 flex items-center justify-center">
+                            <svg class="w-8 h-8 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="3">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"></path>
+                            </svg>
+                         </div>
+                    </div>
+                `;
+
+                setTimeout(() => {
+                    element.style.transition = 'all 0.5s ease';
+                    element.classList.add('opacity-0', 'scale-90');
+                    setTimeout(() => element.remove(), 500);
+                }, 1500);
+
+            } else {
+                alert('Error: ' + (data.error || 'Unknown error'));
+            }
+
+        } catch (err) {
+            console.error(err);
+            alert('Error al conectar con el servidor.');
+        }
+    }
+
+    function setView(mode) {
+        const grid = document.getElementById('view-grid');
+        const list = document.getElementById('view-list');
+        const btnGrid = document.getElementById('btn-grid');
+        const btnList = document.getElementById('btn-list');
+
+        if (mode === 'grid') {
+            if (grid) grid.classList.remove('hidden');
+            if (list) list.classList.add('hidden');
+
+            if (btnGrid) {
+                btnGrid.classList.add('bg-neutral-800', 'text-white');
+                btnGrid.classList.remove('text-gray-400');
+            }
+            if (btnList) {
+                btnList.classList.remove('bg-neutral-800', 'text-white');
+                btnList.classList.add('text-gray-400');
+            }
+        } else {
+            if (grid) grid.classList.add('hidden');
+            if (list) list.classList.remove('hidden');
+
+            if (btnList) {
+                btnList.classList.add('bg-neutral-800', 'text-white');
+                btnList.classList.remove('text-gray-400');
+            }
+            if (btnGrid) {
+                btnGrid.classList.remove('bg-neutral-800', 'text-white');
+                btnGrid.classList.add('text-gray-400');
+            }
+        }
+        localStorage.setItem('playlistViewMode', mode);
+    }
+
+    // Load Pref with delay to ensure DOM is ready
+    document.addEventListener('DOMContentLoaded', () => {
+        const savedMode = localStorage.getItem('playlistViewMode') || 'grid';
+        setView(savedMode);
+    });
+</script>
+{% endblock %}

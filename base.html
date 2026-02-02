@@ -1,0 +1,614 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport"
+        content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>SpotiTool Pro</title>
+
+    <!-- PWA / Mobile Capable -->
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="theme-color" content="#000000">
+    <link rel="manifest" href="/static/manifest.json">
+    <link rel="apple-touch-icon" href="/static/img/spotitool_logo.png">
+
+    <!-- Service Worker Registration -->
+    <script>
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('/static/sw.js')
+                    .then(reg => console.log('SW registered!'))
+                    .catch(err => console.log('SW failed:', err));
+            });
+        }
+    </script>
+
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+    <style>
+        html,
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #0c0c0c;
+            color: white;
+            overflow-x: hidden !important;
+        }
+
+        /* Glassmorphism Classes */
+        .glass {
+            background: rgba(255, 255, 255, 0.03);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+        }
+
+        .glass-dark {
+            background: rgba(0, 0, 0, 0.5);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        /* Ambient Background */
+        #ambient-bg {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: -1;
+            transition: background 1.5s ease;
+            background: radial-gradient(circle at 20% 30%, #1db95422 0%, #000 100%);
+        }
+
+        .sidebar-link {
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .sidebar-link:hover {
+            background-color: rgba(255, 255, 255, 0.05);
+            color: white;
+            transform: translateX(4px);
+        }
+
+        .active-link {
+            background-color: rgba(29, 185, 84, 0.15);
+            color: #1DB954;
+            font-weight: 700;
+        }
+
+        .active-link::before {
+            content: '';
+            position: absolute;
+            left: 0;
+            top: 20%;
+            height: 60%;
+            width: 4px;
+            background: #1DB954;
+            border-radius: 0 4px 4px 0;
+            box-shadow: 0 0 15px #1db954;
+        }
+
+        /* Scrollbar */
+        ::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: transparent;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 10px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: rgba(255, 255, 255, 0.2);
+        }
+
+        .premium-btn {
+            background: linear-gradient(135deg, #1db954 0%, #158e41 100%);
+            box-shadow: 0 4px 15px rgba(29, 185, 84, 0.3);
+            transition: all 0.3s ease;
+        }
+
+        .premium-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(29, 185, 84, 0.5);
+        }
+    </style>
+</head>
+
+<body
+    class="bg-black text-white h-screen w-screen overflow-hidden flex flex-col md:flex-row selection:bg-green-500 selection:text-black">
+    <!-- Ambient Background -->
+    <div id="ambient-bg"></div>
+
+    <!-- Desktop Sidebar (Hidden on Mobile) -->
+    <aside class="w-72 glass-dark border-r border-white/5 hidden md:flex flex-col z-50 h-full">
+        <div class="p-8">
+            <div class="flex items-center gap-3 group cursor-default">
+                <img src="{{ url_for('static', filename='img/logo.png') }}" alt="Logo"
+                    class="w-12 h-12 object-contain transition-transform group-hover:scale-110 duration-300">
+                <div>
+                    <h1 class="text-2xl font-black text-white leading-tight">Spoti Tool</h1>
+                    <p class="text-[10px] text-gray-500 uppercase tracking-[0.2em] font-bold">Professional Manager</p>
+                </div>
+            </div>
+        </div>
+
+        <nav class="flex-1 px-4 space-y-2 mt-4">
+            <a href="/"
+                class="sidebar-link flex items-center gap-4 px-5 py-4 rounded-2xl text-gray-400 hover:text-white {% if page=='create' %}active-link{% endif %}">
+                <span class="text-xl">✨</span>
+                <span class="text-sm font-semibold">Generar Playlist</span>
+            </a>
+            <a href="/my-playlists"
+                class="sidebar-link flex items-center gap-4 px-5 py-4 rounded-2xl text-gray-400 hover:text-white {% if page=='playlists' %}active-link{% endif %}">
+                <span class="text-xl">💿</span>
+                <span class="text-sm font-semibold">Mi Biblioteca</span>
+            </a>
+            <a href="/history"
+                class="sidebar-link flex items-center gap-4 px-5 py-4 rounded-2xl text-gray-400 hover:text-white {% if page=='history' %}active-link{% endif %}">
+                <span class="text-xl">⏳</span>
+                <span class="text-sm font-semibold">Historial Pro</span>
+            </a>
+        </nav>
+
+        <div class="p-6 m-4 rounded-3xl bg-white/5 border border-white/5">
+            <div class="text-[10px] text-gray-500 uppercase tracking-widest font-bold mb-3">Conexión Actual</div>
+            {% if session.get('client_id') or session.get('token_info') %}
+            <div class="flex items-center gap-3">
+                <div class="relative">
+                    <div class="w-10 h-10 rounded-full bg-green-500/20 flex items-center justify-center">
+                        <span class="text-green-500 text-lg">✔</span>
+                    </div>
+                    <div
+                        class="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-green-500 border-2 border-neutral-900 rounded-full animate-pulse shadow-[0_0_8px_#1db954]">
+                    </div>
+                </div>
+                <div>
+                    <div class="text-xs font-bold text-white">Conectado</div>
+                    <div class="text-[10px] text-gray-400 truncate w-32">Sesión Activa</div>
+                </div>
+            </div>
+            {% else %}
+            <div class="flex items-center gap-3">
+                <div class="relative">
+                    <div class="w-10 h-10 rounded-full bg-red-500/20 flex items-center justify-center grayscale">
+                        <span class="text-red-500 text-lg opacity-50">!</span>
+                    </div>
+                    <div
+                        class="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-red-600 border-2 border-neutral-900 rounded-full shadow-[0_0_8px_#dc2626]">
+                    </div>
+                </div>
+                <div>
+                    <div class="text-xs font-bold text-gray-500">Desconectado</div>
+                    <div class="text-[10px] text-gray-600 truncate w-32">Sin acceso</div>
+                </div>
+            </div>
+            {% endif %}
+
+            <a href="/logout"
+                class="block mt-4 text-[10px] font-bold text-center text-gray-500 hover:text-red-400 transition-colors uppercase tracking-widest">
+                Cerrar Sesión
+            </a>
+        </div>
+    </aside>
+
+    <!-- Mobile Top Navigation (Visible only on Mobile) -->
+    <nav
+        class="md:hidden fixed top-0 left-0 w-full glass-dark border-b border-white/10 z-[60] px-4 py-3 flex items-center justify-between backdrop-blur-xl">
+        <div class="flex items-center gap-3">
+            <button onclick="toggleMobileMenu()"
+                class="p-2 text-white/70 hover:text-white active:scale-95 transition-transform">
+                <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path d="M4 6h16M4 12h16M4 18h16" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+                </svg>
+            </button>
+            <img src="{{ url_for('static', filename='img/logo.png') }}" alt="Logo" class="h-8 object-contain">
+        </div>
+        <!-- Optional: Profile/User Icon can go here -->
+    </nav>
+
+    <!-- Mobile Menu Overlay -->
+    <div id="mobile-menu"
+        class="fixed inset-0 bg-black/95 z-[70] hidden flex flex-col p-8 transition-opacity duration-300 backdrop-blur-xl overflow-y-auto">
+        <div class="flex justify-between items-center mb-12">
+            <img src="{{ url_for('static', filename='img/logo.png') }}" alt="Logo" class="h-10 object-contain">
+            <button onclick="toggleMobileMenu()"
+                class="p-2 text-white/50 hover:text-white active:scale-95 transition-transform bg-white/5 rounded-full">
+                <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path d="M6 18L18 6M6 6l12 12" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+                </svg>
+            </button>
+        </div>
+        <div class="flex flex-col gap-8 text-xl md:text-3xl font-black uppercase tracking-tight">
+            <a href="/" onclick="toggleMobileMenu()"
+                class="text-white hover:text-green-500 transition-colors flex items-center gap-4">
+                <span class="text-green-500 text-2xl md:text-4xl">✨</span> Crear Playlist
+            </a>
+            <a href="/my-playlists" onclick="toggleMobileMenu()"
+                class="text-white hover:text-green-500 transition-colors flex items-center gap-4">
+                <span class="text-green-500 text-2xl md:text-4xl">💿</span> Mi Biblioteca
+            </a>
+            <a href="/history" onclick="toggleMobileMenu()"
+                class="text-white hover:text-green-500 transition-colors flex items-center gap-4">
+                <span class="text-green-500 text-2xl md:text-4xl">⏳</span> Historial
+            </a>
+            {% if session.get('client_id') or session.get('token_info') %}
+            <div class="h-px bg-white/10 my-4"></div>
+            <a href="/logout" onclick="toggleMobileMenu()"
+                class="text-red-500 hover:text-red-400 transition-colors text-xl flex items-center gap-4">
+                <span>✖</span> Cerrar Sesión
+            </a>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Main Content -->
+    <main class="flex-1 bg-black flex flex-col relative w-full h-full overflow-hidden">
+        <!-- Top Logo Header (Visible on Desktop and Mobile inside main) -->
+
+
+        <!-- Toast Area -->
+
+        <div id="toast-container" class="absolute top-5 right-5 z-50">
+            {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+            {% for category, message in messages %}
+            {% if category == 'visual_success' %}
+            <!-- Trigger Visual Animation Script -->
+            <script>
+                document.addEventListener('DOMContentLoaded', () => {
+                    const overlay = document.getElementById('visual-success-overlay');
+                    const box = document.getElementById('visual-success-box');
+
+                    overlay.classList.remove('hidden');
+
+                    // Animate In
+                    requestAnimationFrame(() => {
+                        box.classList.remove('scale-50', 'opacity-0');
+                        box.classList.add('scale-100', 'opacity-100');
+                    });
+
+                    // Animate Out after 1.5s
+                    setTimeout(() => {
+                        box.classList.remove('scale-100', 'opacity-100');
+                        box.classList.add('scale-50', 'opacity-0');
+                        setTimeout(() => {
+                            overlay.classList.add('hidden');
+                        }, 300);
+                    }, 1500);
+                });
+            </script>
+            {% else %}
+            <div
+                class="mb-2 px-6 py-4 rounded-lg shadow-2xl flex items-center gap-3 animate-fade-in-down
+                                {% if category == 'error' %}bg-red-600 text-white{% else %}bg-green-500 text-black{% endif %}">
+                <span class="font-bold">{{ message | safe }}</span>
+                <button onclick="this.parentElement.remove()" class="ml-2 opacity-50 hover:opacity-100">✕</button>
+            </div>
+            {% endif %}
+            {% endfor %}
+            {% endif %}
+            {% endwith %}
+        </div>
+
+        <div class="flex-1 p-0 min-h-0 w-full relative overflow-y-auto custom-scrollbar">
+            {% block content %}
+            {% endblock %}
+        </div>
+
+        <!-- Compliance Disclaimer -->
+        <footer class="shrink-0 px-4 py-3 text-center border-t border-white/5 bg-black/50">
+            <p class="text-[10px] text-gray-600 font-medium">
+                SpotiTool is an independent application and is not affiliated with, endorsed by, or sponsored by Spotify
+                AB.
+            </p>
+        </footer>
+    </main>
+
+    <!-- Global Loader Overlay -->
+    <div id="global-loader"
+        class="fixed inset-0 bg-black/80 backdrop-blur-sm z-[100] hidden flex items-center justify-center opacity-0 transition-opacity duration-300">
+        <div class="text-center transform scale-95 transition-transform duration-300" id="loader-content">
+            <div
+                class="animate-spin rounded-full h-16 w-16 border-t-2 border-b-2 border-green-500 mx-auto mb-4 shadow-[0_0_15px_rgba(34,197,94,0.5)]">
+            </div>
+            <h3 class="text-xl font-bold text-white tracking-widest uppercase">Procesando</h3>
+            <p class="text-gray-400 text-sm mt-2 font-mono">Conectando a Spotify...</p>
+        </div>
+    </div>
+
+    <!-- Spotify-Style Visual Success Overlay -->
+    <div id="visual-success-overlay"
+        class="fixed inset-0 pointer-events-none z-[200] flex items-center justify-center hidden">
+        <div class="bg-black/80 backdrop-blur-md p-8 rounded-3xl shadow-2xl transform scale-50 opacity-0 transition-all duration-300 ease-out flex flex-col items-center"
+            id="visual-success-box">
+            <div class="w-24 h-24 rounded-full border-4 border-green-500 flex items-center justify-center mb-0">
+                <svg class="w-12 h-12 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"
+                    stroke-width="3">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"></path>
+                </svg>
+            </div>
+            <!-- Optional: Add text if desired, but user asked for "only a check" -->
+        </div>
+    </div>
+
+    <!-- Global Spotify-Style Mini Player -->
+    <div id="global-player"
+        class="fixed bottom-32 md:bottom-10 left-1/2 -translate-x-1/2 w-[90%] md:w-[400px] glass-dark rounded-3xl p-4 z-[90] shadow-2xl border border-white/10 hidden animate-in slide-in-from-bottom-5 duration-500">
+        <div class="flex items-center gap-4">
+            <img id="player-img" src="" alt="Cover" class="w-14 h-14 rounded-xl object-cover shadow-lg bg-neutral-800">
+            <div class="flex-1 min-w-0">
+                <div id="player-name" class="text-sm font-bold text-white truncate mb-0.5">Song Name</div>
+                <div id="player-artist" class="text-[10px] text-gray-400 font-bold uppercase tracking-wider truncate">
+                    Artist Name</div>
+                <!-- Progress Bar -->
+                <div class="w-full bg-white/5 h-1 rounded-full mt-3 overflow-hidden relative">
+                    <div id="player-progress" class="bg-green-500 h-full w-0 transition-all duration-100"></div>
+                </div>
+            </div>
+            <div class="flex items-center gap-2">
+                <button onclick="window.globalTrackPlayToggle()"
+                    class="w-12 h-12 rounded-full bg-white text-black flex items-center justify-center hover:scale-105 active:scale-95 transition-all shadow-xl">
+                    <svg id="player-pause-icon" class="w-5 h-5 hidden" fill="currentColor" viewBox="0 0 24 24">
+                        <path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z" />
+                    </svg>
+                    <svg id="player-play-icon" class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
+                        <path d="M8 5v14l11-7z" />
+                    </svg>
+                </button>
+                <button onclick="window.closeGlobalPlayer()"
+                    class="p-2 text-gray-500 hover:text-white transition-colors">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path d="M6 18L18 6M6 6l12 12" stroke-width="2" stroke-linecap="round"
+                            stroke-linejoin="round" />
+                    </svg>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // --- GLOBAL AUDIO SYSTEM ---
+        window.globalAudio = new Audio();
+        window.currentPlayingId = null;
+
+        function initiatePlayback(data) {
+            const player = document.getElementById('global-player');
+            const { id, url, name, artist, img } = data;
+
+            if (window.currentPlayingId === id) {
+                window.globalTrackPlayToggle();
+                return;
+            }
+
+            window.globalAudio.pause();
+            if (!url || url === 'None' || url === '') {
+                showToast("Vista previa no disponible", 'error');
+                return;
+            }
+
+            document.getElementById('player-name').innerText = name || "Cargando...";
+            document.getElementById('player-artist').innerText = artist || "Desconocido";
+            document.getElementById('player-img').src = img || "";
+            document.getElementById('player-progress').style.width = '0%';
+            document.querySelectorAll('.btn-progress').forEach(b => b.style.width = '0%');
+            // player.classList.remove('hidden'); // Disable popup per user request
+
+            window.globalAudio.src = url;
+            window.globalAudio.volume = 0.5;
+            window.globalAudio.play().catch(err => {
+                console.error("Audio error:", err);
+                showToast("Error de reproducción", 'error');
+            });
+
+            window.currentPlayingId = id;
+            updateIcons(true);
+        }
+
+        // Global Event Delegation for .play-preview buttons
+        document.addEventListener('click', (e) => {
+            const btn = e.target.closest('.play-preview');
+            if (btn) {
+                e.preventDefault();
+                e.stopPropagation();
+                initiatePlayback({
+                    id: btn.dataset.id,
+                    url: btn.dataset.url,
+                    name: btn.dataset.name,
+                    artist: btn.dataset.artist,
+                    img: btn.dataset.img
+                });
+            }
+        });
+
+        window.handlePlay = (id, url, name, artist, img) => initiatePlayback({ id, url, name, artist, img });
+
+        window.globalTrackPlayToggle = function () {
+            if (window.globalAudio.paused) {
+                window.globalAudio.play();
+                updateIcons(true);
+            } else {
+                window.globalAudio.pause();
+                updateIcons(false);
+            }
+        };
+
+        window.closeGlobalPlayer = function () {
+            window.globalAudio.pause();
+            window.currentPlayingId = null;
+            document.getElementById('global-player').classList.add('hidden');
+            document.dispatchEvent(new CustomEvent('trackStopped'));
+        };
+
+        function updateIcons(isPlaying) {
+            const playIcon = document.getElementById('player-play-icon');
+            const pauseIcon = document.getElementById('player-pause-icon');
+            if (playIcon && pauseIcon) {
+                if (isPlaying) {
+                    playIcon.classList.add('hidden');
+                    pauseIcon.classList.remove('hidden');
+                } else {
+                    playIcon.classList.remove('hidden');
+                    pauseIcon.classList.add('hidden');
+                }
+            }
+
+            // 1. Reset ALL play/pause elements globally
+            document.querySelectorAll('[id^="icon-play-"]').forEach(el => el.classList.remove('hidden'));
+            document.querySelectorAll('[id^="icon-pause-"]').forEach(el => el.classList.add('hidden'));
+            document.querySelectorAll('[id^="text-play-"]').forEach(el => el.innerText = 'Play Preview');
+            document.querySelectorAll('[id^="btn-play-"]').forEach(btn => {
+                const statusIcon = btn.querySelector('.play-status-icon');
+                if (statusIcon) statusIcon.innerText = '▶';
+                else if (btn.children.length === 0) btn.innerText = '▶';
+            });
+
+            // 2. Update the ACTIVE track elements
+            if (window.currentPlayingId) {
+                const activeId = window.currentPlayingId;
+
+                // Toggle SVG icons
+                const iconPlay = document.getElementById('icon-play-' + activeId);
+                const iconPause = document.getElementById('icon-pause-' + activeId);
+                if (iconPlay && iconPause) {
+                    if (isPlaying) {
+                        iconPlay.classList.add('hidden');
+                        iconPause.classList.remove('hidden');
+                    } else {
+                        iconPlay.classList.remove('hidden');
+                        iconPause.classList.add('hidden');
+                    }
+                }
+
+                // Update text label
+                const textPlay = document.getElementById('text-play-' + activeId);
+                if (textPlay) {
+                    textPlay.innerText = isPlaying ? 'Reproduciendo' : 'Play Preview';
+                }
+
+                // Update small list icons
+                const listBtns = document.querySelectorAll('#btn-play-' + activeId);
+                listBtns.forEach(btn => {
+                    const statusIcon = btn.querySelector('.play-status-icon');
+                    if (statusIcon) {
+                        statusIcon.innerText = isPlaying ? '⏸' : '▶';
+                    } else if (btn.children.length === 0) {
+                        btn.innerText = isPlaying ? '⏸' : '▶';
+                    }
+                });
+            }
+        }
+
+        // Progress Update
+        window.globalAudio.ontimeupdate = () => {
+            const prog = (window.globalAudio.currentTime / window.globalAudio.duration) * 100;
+            const bar = document.getElementById('player-progress');
+            if (bar) bar.style.width = prog + '%';
+
+            // Update specific button bars
+            if (window.currentPlayingId) {
+                document.querySelectorAll(`.btn-progress[data-id="${window.currentPlayingId}"]`).forEach(b => {
+                    b.style.width = prog + '%';
+                });
+            }
+        };
+
+        window.globalAudio.onended = () => {
+            updateIcons(false);
+            // Reset ALL progress bars
+            document.querySelectorAll('.btn-progress').forEach(b => b.style.width = '0%');
+            window.currentPlayingId = null;
+        };
+
+        window.handlePlay = handlePlay;
+
+        function showToast(message, type = 'success') {
+            // Only show if type is 'error'
+            if (type !== 'error') {
+                console.log(`Toast suppressed [${type}]: ${message}`);
+                return;
+            }
+
+            const container = document.getElementById('toast-container');
+            const toast = document.createElement('div');
+
+            // Colors (Only error styling needed really, but keeping fallback just in case)
+            const bgClass = 'bg-red-600';
+            const textClass = 'text-white';
+
+            toast.className = `mb-2 px-6 py-4 rounded-lg shadow-2xl flex items-center gap-3 animate-fade-in-down ${bgClass} ${textClass}`;
+            toast.innerHTML = `
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                <span class="font-bold">${message}</span>
+                <button onclick="this.parentElement.remove()" class="ml-2 opacity-50 hover:opacity-100">✕</button>
+            `;
+
+            container.appendChild(toast);
+
+            // Auto remove after longer time for errors
+            setTimeout(() => {
+                toast.style.opacity = '0';
+                setTimeout(() => toast.remove(), 300);
+            }, 6000);
+        }
+
+        // Global Loader Logic
+        function showLoader(text) {
+            const loader = document.getElementById('global-loader');
+            const content = document.getElementById('loader-content');
+            if (text) loader.querySelector('p').innerText = text;
+
+            loader.classList.remove('hidden');
+            // Allow display block to render then fade in
+            requestAnimationFrame(() => {
+                loader.classList.remove('opacity-0');
+                content.classList.remove('scale-95');
+                content.classList.add('scale-100');
+            });
+        }
+
+        function hideLoader() {
+            const loader = document.getElementById('global-loader');
+            loader.classList.add('opacity-0');
+            setTimeout(() => loader.classList.add('hidden'), 300);
+        }
+
+        // Auto-attach to all forms that are not "no-loader"
+        document.addEventListener('DOMContentLoaded', () => {
+            document.querySelectorAll('form:not(.no-loader)').forEach(form => {
+                form.addEventListener('submit', (e) => {
+                    // Check validity first
+                    if (form.checkValidity()) {
+                        showLoader('Esto podría tomar unos segundos...');
+                    }
+                });
+            });
+
+            // Allow explicit triggers via onclick="showLoader()"
+        });
+        // Toggle Mobile Menu
+        function toggleMobileMenu() {
+            const menu = document.getElementById('mobile-menu');
+            if (menu.classList.contains('hidden')) {
+                menu.classList.remove('hidden');
+                // Remove opacity-0 after display:flex is set
+                requestAnimationFrame(() => menu.classList.remove('opacity-0'));
+            } else {
+                menu.classList.add('opacity-0');
+                // Wait for transition then hide
+                setTimeout(() => menu.classList.add('hidden'), 300);
+            }
+        }
+    </script>
+</body>
+
+</html>
