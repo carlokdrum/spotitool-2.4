@@ -142,6 +142,14 @@ def callback():
         flash(f"Error de login: {e}", "error")
         return redirect(url_for('home'))
 
+@app.route('/sw.js')
+def service_worker():
+    # Served from the root so the worker's scope covers the whole site
+    resp = app.send_static_file('sw.js')
+    resp.headers['Service-Worker-Allowed'] = '/'
+    resp.headers['Cache-Control'] = 'no-cache'
+    return resp
+
 @app.route('/offline')
 def offline():
     return render_template('offline.html')
