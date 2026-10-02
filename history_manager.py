@@ -2,8 +2,10 @@ import json
 import os
 
 class HistoryManager:
-    def __init__(self, filename='history.json'):
-        self.filename = filename
+    def __init__(self, filename=None):
+        # Absolute path so it doesn't depend on the working directory
+        self.filename = filename or os.environ.get(
+            'HISTORY_FILE', os.path.join(os.path.dirname(os.path.abspath(__file__)), 'history.json'))
         if not os.path.exists(self.filename):
             with open(self.filename, 'w') as f:
                 json.dump([], f)
